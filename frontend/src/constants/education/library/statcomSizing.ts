@@ -108,8 +108,8 @@ export const statcomSizingEducation: EducationContent = {
       ],
       result:
         "Selected: ±120 MVAR STATCOM + 4 × 180 MVAR shunt reactors (2 onshore, 2 at the OSS), one switched out from " +
-        "half output up. Load flow keeps every live farm bus within 0.997–1.015 pu in all four scenarios, the export at " +
-        "99 % of 825 A at 510 MW; the farm then exchanges −13 MVAR (full load), +30 MVAR (half load) and −13 MVAR " +
+        "half output up. Load flow keeps every live farm bus within 0.986–1.007 pu in all four scenarios, the export at " +
+        "94 % of 825 A at 510 MW; the farm then exchanges −97 MVAR (full load), +19 MVAR (half load) and −12 MVAR " +
         "(no load) with PSE at 400 kV, well inside the −178.5 … +204 MVAR PSE range.",
     },
   ],

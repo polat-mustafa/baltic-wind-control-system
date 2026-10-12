@@ -5,6 +5,8 @@
  * Vite dev proxy forwards /api → localhost:8000.
  */
 
+import type { SupportStructure, TowerFatigue, TowerLoads } from "../types/turbinePhysics";
+
 import { post, request } from "./apiClient";
 
 const BASE = "/api/v1/turbine-physics";
@@ -147,4 +149,21 @@ export function postAeroState(
     pitch_angle_deg: pitchAngleDeg,
     air_density_kg_m3: airDensityKgM3,
   });
+}
+
+// ── Support structure and tower loads ─────────────────────────────
+
+/** Tower + jacket natural frequencies vs the 1P / 3P bands and the 50-year wave band. */
+export function getSupportStructure(): Promise<SupportStructure> {
+  return request(`${BASE}/support-structure`);
+}
+
+/** One 10-min turbulent run: tower-base fore-aft moment, DEL and damping. */
+export function getTowerLoads(windMs = 11, seed = 0): Promise<TowerLoads> {
+  return request(`${BASE}/tower-loads?wind_ms=${windMs}&seed=${seed}`);
+}
+
+/** Tower-base DEL per wind bin and over the site Weibull (~15 s the first time). */
+export function getTowerFatigue(): Promise<TowerFatigue> {
+  return request(`${BASE}/tower-fatigue`);
 }

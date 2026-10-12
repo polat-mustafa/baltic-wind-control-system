@@ -64,6 +64,8 @@ from app.services.p2.network_model import (
     STRING_LAYOUT,
     FarmSpec,
     build_network,
+    loss_breakdown_mw,
+    set_statcom_q,
 )
 
 # PSE IRiESP voltage limits [p.u.]
@@ -234,7 +236,7 @@ def auto_statcom_dispatch(
         if new_q == current_q:
             break  # saturated at the limit — no further correction possible
         current_q = new_q
-        net.sgen.at[statcom_idx, "q_mvar"] = current_q
+        set_statcom_q(net, statcom_idx, current_q)
     else:
         # Loop exhausted after a setpoint change: refresh results so they match current_q
         pp.runpp(net, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
@@ -317,7 +319,8 @@ def run_load_flow(
     v_max = max(non_slack_vm) if non_slack_vm else 0.0
 
     # Total losses = sum of line losses + transformer losses
-    total_loss = sum(ln.pl_mw for ln in lines) + sum(t.pl_mw for t in transformers)
+    breakdown = loss_breakdown_mw(net)
+    total_loss = sum(breakdown.values())
 
     # Total generation (WTGs only, exclude STATCOM)
     total_gen = sum(
@@ -339,6 +342,7 @@ def run_load_flow(
         v_min_pu=round(v_min, 4),
         v_max_pu=round(v_max, 4),
         total_loss_mw=round(total_loss, 2),
+        loss_breakdown_mw={k: round(v, 3) for k, v in breakdown.items()},
         total_generation_mw=round(total_gen, 2),
         voltage_compliant=voltage_compliant,
         buses=buses,
@@ -393,7 +397,9 @@ def _extract_line_results(net: pp.pandapowerNet) -> list[LineResult]:
 def _extract_transformer_results(net: pp.pandapowerNet) -> list[TransformerResult]:
     """Extract per-transformer results from converged load flow."""
     results = []
-    for idx in range(len(net.trafo)):
+    for idx in net.trafo.index:
+        if str(net.trafo.at[idx, "name"]).startswith("WTG_TX_"):
+            continue  # 34 WTG units: in the loss breakdown, not the transformer table
         results.append(
             TransformerResult(
                 name=str(net.trafo.at[idx, "name"]),
@@ -407,34 +413,71 @@ def _extract_transformer_results(net: pp.pandapowerNet) -> list[TransformerResul
     return results
 
 
+#: Export loading above which reactor switching also minimises the cable current [%].
+EXPORT_LOADING_TARGET_PCT = 90.0
+#: STATCOM voltage-control tolerance used by the operating-point dispatch [p.u.].
+DISPATCH_TOLERANCE_PU = 0.002
+
+
+def _export_loading_pct(net: pp.pandapowerNet) -> float:
+    """Largest export-cable end loading of a solved network [%] (0 if no export line)."""
+    ex = net.res_line.loading_percent[net.line.name.str.startswith("Export_")]
+    return float(ex.max()) if len(ex) else 0.0
+
+
+def _dispatch_key(net: pp.pandapowerNet, q: float, rating: float) -> tuple[bool, float, float]:
+    """Order of preference of a dispatched state: feasible first (converged, STATCOM within
+    its rating and OSS 220 kV on target), then the export cable loading above the target,
+    then the STATCOM effort |Q|."""
+    oss = net.bus.index[net.bus.name == "OSS_220kV"][0]
+    feasible = (
+        bool(net.converged)
+        and abs(q) <= rating + 1e-6
+        and abs(float(net.res_bus.at[oss, "vm_pu"]) - 1.0) <= 0.01
+    )
+    loading = max(_export_loading_pct(net), EXPORT_LOADING_TARGET_PCT) if net.converged else 1e9
+    return (not feasible, round(loading, 2), round(abs(q), 1))
+
+
 def dispatch_with_reactor_switching(net: pp.pandapowerNet, rating: float) -> tuple[float, int]:
     """STATCOM voltage control plus the operator's reactor switching.
 
-    All reactors start in service (one per export circuit at each cable end).
-    While the STATCOM injects more than half its rating, the operator switches out
-    the one reactor (onshore or OSS) that relieves the STATCOM most, and keeps it
-    out only if |Q| falls — as the landing estimate does (frontend
-    ``reactiveBalance``). SB-510 (4 × 180 MVAR on 624 MVAR of charging) runs on
-    three at full output. Every operating-point study uses it: Grid tab, N-1, live map.
+    All reactors start in service (one per export circuit at each cable end). While the
+    STATCOM injects more than half its rating, or the export cable runs above
+    ``EXPORT_LOADING_TARGET_PCT``, the operator tries switching out one reactor at each
+    cable end and keeps the better state (``_dispatch_key``): feasible first, then the
+    lower export-cable loading, then the smaller STATCOM output. Which end matters: at full
+    output SB-510's OSS end carries the larger current, and taking an OSS reactor out
+    instead of an onshore one lowers the export loading by ≈ 7 points (engineering audit
+    F1, ``scripts/audit/a4_wtg_transformers.py``). Every operating-point study uses it:
+    Grid tab, N-1, live map.
 
     Returns the STATCOM set-point [MVAR, generating +] and the reactors in service.
     """
     reactors = [i for i in net.shunt.index if str(net.shunt.at[i, "name"]).startswith("Reactor_")]
-    q = auto_statcom_dispatch(net)
+    statcom = net.sgen.index[net.sgen["name"] == "STATCOM"][0]
+    q = auto_statcom_dispatch(net, tolerance_pu=DISPATCH_TOLERANCE_PU)
+    key = _dispatch_key(net, q, rating)
     on = [i for i in reactors if bool(net.shunt.at[i, "in_service"])]
-    while on and q > 0.5 * rating:
-        trials: list[tuple[float, int]] = []
+    while on and (q > 0.5 * rating or key[1] > EXPORT_LOADING_TARGET_PCT or key[0]):
+        trials: list[tuple[tuple[bool, float, float], float, int]] = []
         for i in {str(net.shunt.at[j, "name"]).split("_")[1]: j for j in on}.values():
             net.shunt.at[i, "in_service"] = False  # one candidate per cable end
-            trials.append((auto_statcom_dispatch(net), i))
+            set_statcom_q(net, statcom, q)  # every trial starts from the current state
+            try:
+                q_t = auto_statcom_dispatch(net, tolerance_pu=DISPATCH_TOLERANCE_PU)
+                trials.append((_dispatch_key(net, q_t, rating), q_t, i))
+            except pp.LoadflowNotConverged:
+                trials.append(((True, 1e9, 1e9), 0.0, i))  # no solution: never chosen
             net.shunt.at[i, "in_service"] = True
-        q_out, best = min(trials, key=lambda t: abs(t[0]))
-        if abs(q_out) >= abs(q):
+        best_key, q_out, best = min(trials, key=lambda t: t[0])
+        if best_key >= key:
             break
         net.shunt.at[best, "in_service"] = False
         on.remove(best)
-        q = q_out
-    q = auto_statcom_dispatch(net)  # results of the chosen state
+        q, key = q_out, best_key
+    set_statcom_q(net, statcom, q)
+    q = auto_statcom_dispatch(net, tolerance_pu=DISPATCH_TOLERANCE_PU)  # chosen state
     return q, len(on)
 
 
@@ -498,7 +541,8 @@ def run_live_load_flow(wtg_p_mw: list[float], spec: FarmSpec = SB510) -> LiveLoa
         str(net.trafo.at[i, "name"]): float(net.res_trafo.at[i, "loading_percent"])
         for i in net.trafo.index
     }
-    losses = float(net.res_line.pl_mw.sum() + net.res_trafo.pl_mw.sum())
+    breakdown = loss_breakdown_mw(net)
+    losses = sum(breakdown.values())
     # ext_grid absorbs the farm's export: its injection is the negative of what we deliver
     poc_p = -float(net.res_ext_grid.p_mw.sum())
     poc_q = -float(net.res_ext_grid.q_mvar.sum())
@@ -510,6 +554,7 @@ def run_live_load_flow(wtg_p_mw: list[float], spec: FarmSpec = SB510) -> LiveLoa
         poc_p_mw=round(poc_p, 2),
         poc_q_mvar=round(poc_q, 2),
         total_loss_mw=round(losses, 3),
+        loss_breakdown_mw={k: round(v, 3) for k, v in breakdown.items()},
         statcom_q_mvar=round(statcom_q, 1),
         reactors_in_service=reactors_on,
         v_poc_pu=round(bus["PSE_400kV"], 4),

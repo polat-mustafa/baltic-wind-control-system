@@ -68,7 +68,7 @@ export const exportTechEducation: EducationContent = {
       result:
         "At 108 km the charging current costs ≈ 13 % of the capacity and 624 Mvar of compensation, split between a " +
         "reactor at each end of each cable (4 × 180 Mvar) so that both ends carry only half of it; AC is still the " +
-        "cheaper choice, with 36 MW to spare (the load flow puts the cables at 99 % at 510 MW).",
+        "cheaper choice, with 36 MW to spare (the load flow puts the cables at 94 % at 510 MW).",
     },
   ],
 

@@ -23,16 +23,19 @@ import { SourceBadge } from "../ui/SourceBadge";
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** A cascade step left at 0 by default because nothing assessed it (curtailment). */
+const notAssessed = (lf: { name: string; loss_percent: number }) => lf.name === "curtailment" && lf.loss_percent === 0;
+
 export default function AEPCascadePanel() {
   const { aepCascade: a } = useWindResourceStore();
   const c = useChartPalette();
   if (!a) return null;
 
   // ── Waterfall (sequential, multiplicative) ──
-  const steps = a.loss_factors.reduce<{ name: string; lost: number; pct: number; after: number }[]>((acc, lf) => {
+  const steps = a.loss_factors.reduce<{ name: string; lost: number; pct: number; after: number; na: boolean }[]>((acc, lf) => {
     const before = acc.length ? acc[acc.length - 1].after : a.gross_aep_gwh;
     const lost = (before * lf.loss_percent) / 100;
-    return [...acc, { name: cap(lf.name), lost, pct: lf.loss_percent, after: before - lost }];
+    return [...acc, { name: cap(lf.name), lost, pct: lf.loss_percent, after: before - lost, na: notAssessed(lf) }];
   }, []);
   const labels = ["Gross", ...steps.map((s) => s.name), "Net (P50)"];
   const yLo = Math.floor((a.net_aep_gwh * 0.8) / 100) * 100;
@@ -67,7 +70,7 @@ export default function AEPCascadePanel() {
               base: 0,
               text: [
                 a.gross_aep_gwh.toFixed(0),
-                ...steps.map((s) => `−${s.lost.toFixed(0)}<br>(${s.pct.toFixed(1)} %)`),
+                ...steps.map((s) => (s.na ? "not assessed" : `−${s.lost.toFixed(0)}<br>(${s.pct.toFixed(1)} %)`)),
                 a.net_aep_gwh.toFixed(0),
               ],
               textposition: "outside",
@@ -150,13 +153,46 @@ export default function AEPCascadePanel() {
       <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary" aria-label="Sources of the loss values">
         {a.loss_factors.map((lf) => (
           <li key={lf.name} className="flex items-start gap-1">
-            <span className="whitespace-nowrap">
-              {cap(lf.name)} {lf.loss_percent.toFixed(1)} %
-            </span>
+            {notAssessed(lf) ? (
+              <span className="whitespace-nowrap">{cap(lf.name)}: not assessed (0 %)</span>
+            ) : (
+              <span className="whitespace-nowrap">
+                {cap(lf.name)} {lf.loss_percent.toFixed(1)} %
+              </span>
+            )}
             {lf.quality && <SourceBadge p={{ quality: lf.quality, source: lf.source ?? "" }} />}
           </li>
         ))}
       </ul>
+      {a.exceedance_by_horizon && a.exceedance_by_horizon.length > 0 && (
+        <div className="mt-3 overflow-x-auto">
+          <p className="text-xs font-medium text-text-primary">Exceedance by averaging period — only the inter-annual variability term shrinks, as 1/√years</p>
+          <table className="mt-1 w-full max-w-xl text-xs" aria-label="Exceedance by horizon">
+            <thead>
+              <tr className="text-left text-text-muted">
+                <th className="py-0.5 pr-2 font-medium">Horizon</th>
+                <th className="py-0.5 pr-2 text-right font-medium">σ [%]</th>
+                <th className="py-0.5 pr-2 text-right font-medium">P75 [GWh/yr]</th>
+                <th className="py-0.5 pr-2 text-right font-medium">P90 [GWh/yr]</th>
+                <th className="py-0.5 text-right font-medium">P99 [GWh/yr]</th>
+              </tr>
+            </thead>
+            <tbody>
+              {a.exceedance_by_horizon.map((h, i, all) => (
+                <tr key={h.years} className="border-t border-border-primary text-text-secondary">
+                  <td className="py-0.5 pr-2">
+                    {i === all.length - 1 && all.length > 1 ? `Lifetime (${h.years} years)` : h.years === 1 ? "1 year" : `${h.years} years`}
+                  </td>
+                  <td className="py-0.5 pr-2 text-right font-mono">{h.sigma_percent.toFixed(1)}</td>
+                  <td className="py-0.5 pr-2 text-right font-mono">{h.p75_gwh.toFixed(0)}</td>
+                  <td className="py-0.5 pr-2 text-right font-mono text-text-primary">{h.p90_gwh.toFixed(0)}</td>
+                  <td className="py-0.5 text-right font-mono">{h.p99_gwh.toFixed(0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {a.uncertainty && a.uncertainty.length > 0 && (
         <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary" aria-label="Uncertainty components">
           <li className="font-medium text-text-primary">Uncertainty (1σ of AEP):</li>

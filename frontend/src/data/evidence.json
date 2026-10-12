@@ -37,6 +37,19 @@
    "test": "backend/tests/test_dt_care_benchmark.py"
   },
   {
+   "id": "lc-om-vs-analytic",
+   "area": "Lifecycle — O&M",
+   "kind": "analytic",
+   "claim": "hourly fleet O&M simulation in its validation mode (unlimited crews, continuous weather windows)",
+   "against": "analytic availability model on the same hindcast and failure rates",
+   "metric": "time-based availability difference",
+   "value": 0.2554,
+   "unit": "pp",
+   "limit": "|Δ| ≤ 0.6 pp",
+   "test": "backend/tests/test_om_simulation.py",
+   "tolerance": 0.3
+  },
+  {
    "id": "p1-aep-roedsand2-28m-r2",
    "area": "P1 — wind resource",
    "kind": "measured",
@@ -123,6 +136,19 @@
    "test": "backend/tests/test_wake_validation.py"
   },
   {
+   "id": "p1-wake-floris",
+   "area": "P1 — wind resource",
+   "kind": "reference",
+   "claim": "SB-510 farm wake loss (34 × IEA 15 MW, TI 6 %, site Weibull): Jensen, TurbOPark and Gaussian models",
+   "against": "NREL FLORIS 4.2.1 (jensen, turboparkgauss, gauss) on the same layout and power/thrust table",
+   "metric": "largest wake-loss difference of the three pairs",
+   "value": 0.4222,
+   "unit": "pp",
+   "limit": "< 1 pp (Jensen < 0.5 pp)",
+   "test": "backend/tests/test_floris_cross_check.py",
+   "tolerance": 0.1
+  },
+  {
    "id": "p1-wake-noj",
    "area": "P1 — wind resource",
    "kind": "measured",
@@ -171,6 +197,30 @@
    "test": "backend/tests/test_p2_analytic.py"
   },
   {
+   "id": "p2-converter-nyquist-poles",
+   "area": "P2 — HV grid",
+   "kind": "analytic",
+   "claim": "generalized-Nyquist stability verdict of converter–network interaction",
+   "against": "closed-loop poles of rational models (2nd-order Padé delay), stable and unstable cases",
+   "metric": "cases where the Nyquist count equals the RHP poles",
+   "value": 9.0,
+   "unit": "of 9",
+   "limit": "= 9",
+   "test": "backend/tests/test_harmonic_stability.py"
+  },
+  {
+   "id": "p2-earth-fault-ner",
+   "area": "P2 — HV grid",
+   "kind": "analytic",
+   "claim": "pandapower IEC 60909 single-phase fault, NER-earthed 66 kV array (min case)",
+   "against": "hand calculation: U0/R_N and 3ωC0U0 of all strings in quadrature",
+   "metric": "I_k1 / hand value",
+   "value": 1.0251,
+   "unit": "−",
+   "limit": "= 1 ± 0.03",
+   "test": "backend/tests/test_protection_relay.py"
+  },
+  {
    "id": "p2-export-circuits-baltic-power",
    "area": "P2 — HV grid",
    "kind": "reference",
@@ -195,6 +245,31 @@
    "test": "backend/tests/test_p2_analytic.py"
   },
   {
+   "id": "p2-harmonic-detailed-vs-lumped",
+   "area": "P2 — HV grid",
+   "kind": "analytic",
+   "claim": "detailed harmonic network (every array section and WTG transformer) with ideal current sources",
+   "against": "lumped harmonic screen (power_quality), h2–h11 at OSS 66 kV and the POC",
+   "metric": "largest relative difference of a harmonic voltage",
+   "value": 2.3333,
+   "unit": "%",
+   "limit": "≤ 5 %",
+   "test": "backend/tests/test_harmonic_stability.py",
+   "tolerance": 0.5
+  },
+  {
+   "id": "p2-iec60287-tb880",
+   "area": "P2 — HV grid",
+   "kind": "reference",
+   "claim": "IEC 60287-1-1 / -2-1 cable rating engine (export route sections, DTS)",
+   "against": "CIGRE TB 880 case 0-1, 132 kV 630 mm² trefoil (open re-implementation cbl_CIGRE_TB880)",
+   "metric": "continuous rating",
+   "value": 821.7763,
+   "unit": "A",
+   "limit": "= 821.78 A ± 0.05 A",
+   "test": "backend/tests/test_cable_rating.py"
+  },
+  {
    "id": "p2-iec60909-max",
    "area": "P2 — HV grid",
    "kind": "analytic",
@@ -217,6 +292,19 @@
    "unit": "kA",
    "limit": "= hand ± 0.01 %, i_p ± 0.1 %",
    "test": "backend/tests/test_p2_analytic.py"
+  },
+  {
+   "id": "p2-loadflow-opendss",
+   "area": "P2 — HV grid",
+   "kind": "reference",
+   "claim": "SB-510 load flow at 510 MW (72 buses, dispatched reactors, STATCOM, taps)",
+   "against": "the same network solved in EPRI OpenDSS (opendssdirect.py)",
+   "metric": "largest bus-voltage difference",
+   "value": 0.0,
+   "unit": "pu",
+   "limit": "< 0.001 pu; grid P within 0.1 MW, Q within 0.5 Mvar",
+   "test": "backend/tests/test_opendss_cross_check.py",
+   "tolerance": 0.0005
   },
   {
    "id": "andes-frt-iq",
@@ -403,6 +491,31 @@
    "test": "backend/tests/test_p4_real_data.py"
   },
   {
+   "id": "p5-emt-ferranti",
+   "area": "P5 — commissioning",
+   "kind": "analytic",
+   "claim": "EMT (Dommel trapezoidal, π-sections) of energising the open 108 km export cable",
+   "against": "long-line Ferranti ratio 1/cos(βl)",
+   "metric": "steady far-end / busbar voltage ÷ analytic",
+   "value": 1.0006,
+   "unit": "−",
+   "limit": "= 1 ± 0.001",
+   "test": "backend/tests/test_emt_energisation.py"
+  },
+  {
+   "id": "p5-emt-ringing",
+   "area": "P5 — commissioning",
+   "kind": "analytic",
+   "claim": "EMT inrush oscillation after closing onto the open export cable",
+   "against": "1/(2π√((L_source + L_cable/3)·C_cable))",
+   "metric": "dominant ringing frequency ÷ analytic",
+   "value": 1.018,
+   "unit": "−",
+   "limit": "= 1 ± 0.08",
+   "test": "backend/tests/test_emt_energisation.py",
+   "tolerance": 0.05
+  },
+  {
    "id": "tp-steady-pitch",
    "area": "Turbine physics (ROSCO)",
    "kind": "reference",
@@ -449,6 +562,30 @@
    "unit": "%",
    "limit": "< 7 %",
    "test": "backend/tests/test_turbine_physics_reference.py"
+  },
+  {
+   "id": "ts-jacket-f1",
+   "area": "Turbine physics — structure",
+   "kind": "reference",
+   "claim": "3D frame FE of the IEA 15 MW tower on the 50 m jacket with the rigid RNA",
+   "against": "DEME's OpenFAST/SubDyn model of the same turbine and jacket (free decay)",
+   "metric": "first natural frequency",
+   "value": 0.2236,
+   "unit": "Hz",
+   "limit": "= 0.221 Hz ± 3 %",
+   "test": "backend/tests/test_support_structure.py"
+  },
+  {
+   "id": "ts-rainflow-astm",
+   "area": "Turbine physics — structure",
+   "kind": "standard",
+   "claim": "rainflow cycle counting behind the tower-base DEL",
+   "against": "ASTM E1049-85 §5.4.4 worked example",
+   "metric": "cycles counted (all ranges equal the standard's table)",
+   "value": 4.0,
+   "unit": "cycles",
+   "limit": "= 4.0 (0.5 + 1.5 + 0.5 + 1.0 + 0.5)",
+   "test": "backend/tests/test_turbine_loads.py"
   }
  ]
 }

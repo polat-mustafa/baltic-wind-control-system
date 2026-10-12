@@ -62,14 +62,15 @@ export const loadFlowEducation: EducationContent = {
       title: "Full load: 510 MW generated, how much reaches PSE?",
       scenario: "All 34 WTGs at 15 MW, STATCOM holding OSS 220 kV at 1.0 p.u. (Load-flow tab, full-load scenario).",
       steps: [
-        "Losses: array cables (1.34 MW) + export cables (6.65 MW) + two transformer stages (2.1 MW) = 10.1 MW",
-        "Delivered at the POC: 510 − 10.1 − ≈ 0.1 MW in the reactors and the filter = 499.8 MW (2.0 % electrical loss at this instant)",
-        "Export cables carry ≈ 501 MW + their own charging current → 99.1 % of the two-circuit rating (108 km)",
-        "Each transformer stage (2 × 300 MVA) runs at ≈ 83–84 %",
+        "Losses: array cables (1.45 MW) + export cables (7.86 MW, dielectric loss included) + WTG step-up transformers (3.21 MW) + two transformer stages (2.14 MW) + reactors and STATCOM (1.49 MW) + OSS auxiliaries (1.0 MW) = 17.15 MW",
+        "Delivered at the POC: 510 − 17.15 = 492.85 MW (3.4 % electrical loss at this instant)",
+        "Export cables carry ≈ 495 MW + their own charging current → 94.3 % of the two-circuit rating (108 km)",
+        "Each transformer stage (2 × 300 MVA) runs at ≈ 84–85 %",
       ],
       result:
-        "Full-load losses are 1.98 %; averaged over a year (most hours below rated, and I²R falls with the square of the load) the energy loss is lower — " +
-        "the P1 cascade uses 2 %, which also covers auxiliary consumption.",
+        "Full-load losses are 3.4 %. Over a year they are not lower in proportion: I²R falls with the square of the load, but the no-load part " +
+        "(≈ 5.5 MW: reactors, STATCOM standby, transformer iron, cable dielectric, OSS auxiliaries) runs every hour — the P1 cascade integrates " +
+        "the load flow over the site's wind distribution and gets ≈ 3.8 %.",
     },
   ],
 

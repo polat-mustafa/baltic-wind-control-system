@@ -78,6 +78,7 @@ from app.services.p5.energisation import (
     network_snapshot,
     onshore_tap,
     section_a_mw,
+    soak_thermal_check,
 )
 from app.services.p5.equipment_state import (
     EquipmentState,
@@ -279,10 +280,14 @@ def _check_cable_energised(
         if snap.reactor_on_q_mvar is not None
         else ""
     )
-    return ok1 and ok2 and snap.cable_i_send_a is not None, (
+    if snap.cable_i_send_a is None:
+        return False, f"{onshore}; {far}; cable 1 not energised"
+    # the open-ended cable is soaked for 24 h at this current (next step)
+    ok3, soak = soak_thermal_check(snap.cable_i_send_a, spec.export_length_km)
+    return ok1 and ok2 and ok3, (
         f"{onshore}; {far}, rise ×{ferranti_ratio(spec.export_length_km):.4f} (Ferranti); "
         f"charging current {snap.cable_i_send_a:.0f} A{reactor}; "
-        f"{snap.poc_q_mvar:.0f} Mvar into PSE 400 kV"
+        f"{snap.poc_q_mvar:.0f} Mvar into PSE 400 kV; {soak}"
     )
 
 

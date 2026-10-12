@@ -13,6 +13,7 @@ import type {
   GridStrength,
   LoadFlowResult,
   LoadFlowScenario,
+  LossBreakdown,
   NetworkSpec,
   ShortCircuitResult,
   STATCOMSizingResult,
@@ -47,6 +48,8 @@ export interface LiveLoadFlow {
   poc_p_mw: number;
   poc_q_mvar: number;
   total_loss_mw: number;
+  /** Losses by component [MW] (as LoadFlowResult). */
+  loss_breakdown_mw?: LossBreakdown;
   statcom_q_mvar: number;
   /** Shunt reactors in service after the backend's reactor switching. */
   reactors_in_service: number;
@@ -87,6 +90,8 @@ export function runFRT(frtType: FRTType, params: FRTParams): Promise<FRTSimulati
     fault_impedance_pu: params.faultImpedancePu,
     fault_duration_s: params.faultDurationS,
     k_factor: params.kFactor,
+    fault_kind: params.faultKind,
+    k2_factor: params.k2Factor,
   });
 }
 

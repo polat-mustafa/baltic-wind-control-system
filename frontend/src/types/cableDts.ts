@@ -82,3 +82,42 @@ export interface DTSTransientResponse {
   limiting_zone: string | null;
   assessment: string;
 }
+
+// ── IEC 60287 rating per export route section (GET /grid/cable/route-rating) ──
+
+export interface RouteSection {
+  section: string;
+  cable: string;
+  installation: string;
+  ambient_c: number;
+  rating_a: number;
+  /** External thermal resistance T4 [K·m/W]. */
+  t4_k_m_w: number;
+  /** Sheath / armour loss factors λ1, λ2 [–]. */
+  lambda1: number;
+  lambda2: number;
+}
+
+export interface HddOption {
+  option: string;
+  rating_a: number;
+}
+
+/** One section through the 30-year wind hindcast (conductor temperature with its thermal time constant). */
+export interface SectionLoadProfile {
+  section: string;
+  steady_rating_a: number;
+  full_output_current_a: number;
+  peak_conductor_c: number;
+  hours_above_90c: number;
+  tau_ext_h: number;
+}
+
+export interface RouteRatingResponse {
+  sections: RouteSection[];
+  hdd_options: HddOption[];
+  load_profile: SectionLoadProfile[];
+  datasheet_rating_a: number;
+  calibrated_t2_k_m_w: number;
+  verification: { case: string; rating_a: number; reference_a: number };
+}

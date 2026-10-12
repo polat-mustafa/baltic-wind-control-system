@@ -95,3 +95,43 @@ export interface CampaignResult {
   months: string[];
   assumptions: string[];
 }
+
+// ── Fleet O&M replay (GET /lifecycle/om-simulation) ──────────────────
+
+export type OMMode = "shifts" | "continuous";
+
+export interface OMSimulationParams {
+  n_ctv: number;
+  crews_per_ctv: number;
+  mode: OMMode;
+}
+
+export interface OMYearRow {
+  year: number;
+  /** Availability as a fraction (0–1). */
+  time_based: number;
+  energy_based: number;
+  failures: number;
+  jackup_days: number;
+  jackup_mobilisations: number;
+}
+
+export interface OMSimulationResult {
+  mode: string;
+  n_ctv: number;
+  crews_per_ctv: number;
+  /** Fractions (0–1). */
+  time_based_mean: number;
+  energy_based_mean: number;
+  /** Energy-based availability exceeded in 90 % of the hindcast years. */
+  energy_based_p90: number;
+  /** availability_model with unlimited crews (analytic). */
+  analytic_time_based: number;
+  /** Mean downtime per failure, per failure class [h]. */
+  mean_downtime_h: Record<string, number>;
+  /** Corrective O&M cost per year by item [€/yr]. */
+  cost_eur_per_year: Record<string, number>;
+  cost_eur_per_mw_year: number;
+  years: OMYearRow[];
+  source: string;
+}

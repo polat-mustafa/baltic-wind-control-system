@@ -21,6 +21,7 @@ import ConverterComparisonPanel from "./ConverterComparisonPanel";
 import FRTPanel from "./FRTPanel";
 import GridConnectionDiagram from "./GridConnectionDiagram";
 import GridKPIHeader from "./GridKPIHeader";
+import LossBreakdownPanel from "./LossBreakdownPanel";
 import ShortCircuitPanel from "./ShortCircuitPanel";
 import STATCOMPanel from "./STATCOMPanel";
 import VoltageProfilePanel from "./VoltageProfilePanel";
@@ -73,6 +74,7 @@ export default function GridDashboard() {
             <VoltageProfilePanel />
             <CableLoadingPanel />
           </div>
+          <LossBreakdownPanel />
         </Section>
         <Section n={2} title="Reactive power — cable charging, compensation and the PSE range">
           <STATCOMPanel />

@@ -8,6 +8,8 @@ import type {
   ComplianceVerdict,
   EmergencyEvent,
   EmergencyProcedure,
+  EnergisationEmt,
+  EnergisationEmtParams,
   EnergisationTrace,
   EquipmentClass,
   ExecuteStepResponse,
@@ -32,6 +34,15 @@ export const createProgramme = (pic_name: string) =>
 export const getProgramme = (id: string) => request<ProgrammeDetail>(P(id));
 /** Circuit 1's first energisation, one load-flow frame per switching step (cached per farm). */
 export const getEnergisationTrace = () => request<EnergisationTrace>(`${BASE}/energisation-trace`);
+/**
+ * EMT of closing CB-ON-220-01 onto export cable 1 and its line reactor: zero-missing,
+ * DC/AC ratio, switching overvoltage at the open OSS end and the phase-a waveforms.
+ */
+export const getEnergisationEmt = (p: EnergisationEmtParams) =>
+  request<EnergisationEmt>(
+    `${BASE}/energisation/emt?closing_angle_deg=${p.closingAngleDeg}&pole_scatter_ms=${p.poleScatterMs}` +
+      `&pre_insertion=${p.preInsertion}&with_reactor=${p.withReactor}`,
+  );
 export const startProgramme = (id: string) => post<ProgrammeSummary>(`${P(id)}/start`, {});
 
 export async function deleteProgramme(id: string): Promise<void> {

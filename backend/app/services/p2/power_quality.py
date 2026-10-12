@@ -19,8 +19,11 @@ The 34 converters are harmonic current sources at OSS 66 kV. Their emission
 (IEC 61400-21 test-report style, % of rated current) is summed with the
 IEC 61000-3-6 exponent α (1 for h < 5, 1.4 for 5 ≤ h ≤ 10, 2 above):
 I_h,Σ = N^(1/α) · I_h. The harmonic voltage at a node is |Z_node,66(h)|·I_h,Σ.
-Not modelled: converter output impedance/filters, loads and background
+Not modelled here: converter output impedance/filters, loads and background
 distortion of the grid — so resonance peaks are upper bounds (least damping).
+``harmonic_stability`` adds the detailed array (every section and WTG transformer) and
+the converters' Norton admittances, and checks converter–network stability; with ideal
+sources it reproduces this screen within 1 % up to h11.
 
 Planning levels — IEC TR 61000-3-6:2008, Table 2 (MV; HV-EHV ≥ 35 kV)
 -----------------------------------------------------------------------

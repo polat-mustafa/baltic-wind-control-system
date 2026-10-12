@@ -51,3 +51,7 @@ re:^CARE to Compare
 re:^IEC \d+
 re:^IEEE Std
 re:^Tautz-Weinert
+# engineering-study panels (names / symbols that read the same in Turkish)
+Rotor 1P
+THD, Norton [%]
+OpenFAST

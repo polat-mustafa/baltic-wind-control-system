@@ -10,8 +10,11 @@ What the numbers show
 ---------------------
 - Cable energised from shore, OSS end open: the 108 km cable generates
   Q_c = ω·C·U²·l = 2π·50 · 190 nF/km · (220 kV)² · 108 km ≈ 312 Mvar
-  (I_c = Q_c / (√3·U) ≈ 820 A with zero load — 101 % of the 825 A rating at the shore
-  end for the minutes until the OSS end is live), and the open end rises by the
+  (I_c = Q_c / (√3·U) ≈ 820 A with zero load — 101 % of the 825 A static rating at the
+  shore end for the 24 h soak, until the OSS end is live; the cable's thermal time
+  constants (days) keep the land section far below 90 °C over that time, which the
+  energisation check verifies with the DTS transient model, ``soak_thermal_check``),
+  and the open end rises by the
   Ferranti factor 1/cos(βl) ≈ 1.043 (βl = ωl√(LC) ≈ 0.29 rad).
 - The onshore line reactor of cable 1 (180 Mvar at 1 pu, Q ∝ U²) sits on the cable
   side of CB-ON-220-01 and is energised with the cable, so only ≈ 135 Mvar flow into
@@ -61,6 +64,7 @@ from app.services.p2.network_model import (
     GRID_RX_RATIO,
     NUM_ONSHORE_TRANSFORMERS,
     OLTC_STEPS,
+    REACTOR_LOSS_PERCENT,
     SB510,
     TRAFO_66_220_I0_PERCENT,
     TRAFO_66_220_VK_PERCENT,
@@ -70,6 +74,7 @@ from app.services.p2.network_model import (
     TRAFO_220_400_VKR_PERCENT,
     FarmSpec,
     _get_cable_grade,
+    exact_pi_per_km,
 )
 from app.services.p5.equipment_state import (
     EquipmentState,
@@ -159,6 +164,39 @@ def section_a_mw(spec: FarmSpec = SB510) -> float:
     return sum(spec.string_layout[: spec.section_a_strings]) * spec.turbine_rated_mw
 
 
+#: Soak of the IEC 62067 after-installation test (U0 for 24 h) and the ground temperature
+#: the check assumes (the cable datasheet's reference, warmer than the Baltic seabed).
+SOAK_HOURS = 24.0
+SOAK_AMBIENT_C = 20.0
+
+
+def soak_thermal_check(shore_current_a: float, length_km: float) -> tuple[bool, str]:
+    """Conductor temperature after the 24 h no-load soak, from a cold cable.
+
+    The open-ended cable carries its whole charging current at the shore end — just over
+    the 825 A static rating on 108 km. A static rating is a steady state; the cable needs
+    days to get there. The DTS two-node model (IEC 60853-2 form, ``cable_dts``) gives the
+    conductor temperature after 24 h at that current in every route zone; the soak is
+    acceptable if none reaches 90 °C (IEC 62067). Conservative: every zone gets the
+    shore-end current, though it falls linearly to zero towards the open end.
+    """
+    from app.services.p2.cable_dts import T_CONDUCTOR_MAX, simulate_transient
+
+    run = simulate_transient(
+        prefault_current_a=0.0,
+        emergency_current_a=shore_current_a,
+        ambient_temp_c=SOAK_AMBIENT_C,
+        duration_h=SOAK_HOURS,
+    )
+    hottest = max(run["zones"], key=lambda z: z["conductor_temp_c"][-1])
+    t_end = hottest["conductor_temp_c"][-1]
+    ok = run["allowed_minutes"] is None and t_end < T_CONDUCTOR_MAX
+    return ok, (
+        f"24 h soak at {shore_current_a:.0f} A: {hottest['name']} reaches {t_end:.0f} °C "
+        f"(limit {T_CONDUCTOR_MAX:.0f} °C, {SOAK_AMBIENT_C:.0f} °C ground, DTS transient model)"
+    )
+
+
 @lru_cache(maxsize=32)
 def circuit1_capability_mw(spec: FarmSpec = SB510) -> float:
     """Section-A output at which the load flow loads export cable 1 to 100 % [MW].
@@ -228,15 +266,22 @@ def network_snapshot(
     if "CABLE1" in live:
         b_oss = pp.create_bus(net, 220.0, name="OSS 220 kV")
         cable = EXPORT_CABLE_1000
+        # exact long-line π with the XLPE dielectric loss, as in the P2 network
+        r_km, x_km, c_km, g_km = exact_pi_per_km(
+            cable, spec.export_length_km, cable.r_ac_ohm_per_km
+        )
         cable_line = pp.create_line_from_parameters(
-            net, b220, b_oss, length_km=spec.export_length_km,
-            r_ohm_per_km=cable.r_ac_ohm_per_km, x_ohm_per_km=cable.x_ohm_per_km,
-            c_nf_per_km=cable.c_nf_per_km, max_i_ka=cable.max_i_ka, name="Export cable 1",
+            net, b220, b_oss, length_km=spec.export_length_km, r_ohm_per_km=r_km,
+            x_ohm_per_km=x_km, c_nf_per_km=c_km, g_us_per_km=g_km, max_i_ka=cable.max_i_ka,
+            name="Export cable 1",
         )  # fmt: skip
         if "SRON1" in live:
             # pandapower shunt: load convention, q_mvar > 0 absorbs (at 1 pu)
             # (the cable's onshore end is the onshore busbar node once CB-ON-220-01 is closed)
-            reactor_on = pp.create_shunt(net, b220, q_mvar=spec.reactor_unit_mvar, name="SR-ON-1")
+            reactor_on = pp.create_shunt(
+                net, b220, q_mvar=spec.reactor_unit_mvar, name="SR-ON-1",
+                p_mw=REACTOR_LOSS_PERCENT / 100.0 * spec.reactor_unit_mvar,
+            )  # fmt: skip
         on_bus = "OSS220" in live
         buses.append(
             (
@@ -247,7 +292,10 @@ def network_snapshot(
         )
     if b_oss is not None and "SR1" in live:
         # pandapower shunt: load convention, q_mvar > 0 absorbs (at 1 pu)
-        reactor = pp.create_shunt(net, b_oss, q_mvar=spec.reactor_unit_mvar, name="SR-1")
+        reactor = pp.create_shunt(
+            net, b_oss, q_mvar=spec.reactor_unit_mvar, name="SR-1",
+            p_mw=REACTOR_LOSS_PERCENT / 100.0 * spec.reactor_unit_mvar,
+        )  # fmt: skip
     if b_oss is not None and "STC" in live:
         statcom = pp.create_gen(
             net, b_oss, p_mw=0.0, vm_pu=STATCOM_V_SET_PU, min_q_mvar=-spec.statcom_mvar,

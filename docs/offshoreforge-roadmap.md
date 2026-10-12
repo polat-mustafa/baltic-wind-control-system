@@ -191,13 +191,15 @@ Phase 13 follow-ups (owner's decision 2026-10-08: re-route with real data, finis
   harbour channels and checks the land leg. `design(STRING_LAYOUT, 108)`: Q_cable 624 Mvar, 4 × 180 Mvar reactors,
   ±120 Mvar, filter 2 Mvar h10.34 (since the 2026-10-11 audit: array charging 21.3 Mvar from the graded cables, array
   resonance 770 Hz, the 535 Hz peak next to h11 damped from ×3.0 to ×2.0, h11 38.7 % → 26 %; the 115 Hz cable–grid
-  resonance reaches h2 84 % on a weak grid). Load flow: export 99 % at 510 MW, losses 10.1 MW, buses 0.997–1.015 pu; N-1 export trip 174 % → runback
-  to 279 MW; Ferranti 4.3 %, uncompensated rise 24.5 %; IEC 60909 OSS 66 kV 19.5 / 12.5 kA, OSS 220 kV 7.8 kA;
+  resonance reaches h2 84 % on a weak grid). Load flow (since the 2026-10 engineering audit, WTG transformers, auxiliaries and reactor/STATCOM losses included,
+  reactors switched by export loading): export 94 % at 510 MW, losses 17.15 MW (POC 492.9 MW), buses 0.986–1.007 pu;
+  N-1 export trip 165 % → runback to 275 MW; Ferranti 4.3 %, uncompensated rise 24.5 %; IEC 60909 OSS 66 kV 19.5 / 12.5 kA, OSS 220 kV 7.8 kA;
   terminal SCR 2.9 (very-weak scenario 0.75 GVA so GFL still has an operating point). P5: onshore OLTC pre-set 3
-  steps; circuit-1 PPC limit from a load-flow capability (`circuit1_capability_mw`, 233 MW → 210 MW; the held tap
+  steps; circuit-1 PPC limit from a load-flow capability (`circuit1_capability_mw`, 232 MW → 210 MW; the held tap
   sags the onshore busbar to 0.97 pu, the STATCOM sends ≈ 100 Mvar ashore — the analytic 273 MW is too high);
-  energising from shore loads cable 1 to 101 % for the minutes until the OSS end is live. DTS: HDD 78.7–79.5 km,
-  818 A at full load → J-tube ≈ 82 °C (alarm, below 90 °C), N-1 1 438 A → 37 min. The SB-510 site preselects
+  energising from shore loads cable 1 to 101 % for the minutes until the OSS end is live (24 h soak check: land cable
+  ≈ 39 °C). DTS: HDD 78.7–79.5 km, 778 A at full load → J-tube ≈ 75 °C (below the 80 °C alarm), N-1 1 362 A →
+  120 min to 90 °C; IEC 60287 route rating (`cable_rating`): J-tube 851 A, subsea 914 A, HDD 839 A (1600 mm²), land 1465 A. The SB-510 site preselects
   Krzemienica (`CASE_STUDY_GRID_NODE`). Frontend `SB510_NETWORK` was still 3 × 170 / 442 → fixed; landing cable
   losses use the mean I² along the cable (Ic²/12).
 - Per-node short-circuit power: PSE publishes none (not in PRSP 2025–2034 or elsewhere; only the 40 / 50 / 63 kA

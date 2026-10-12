@@ -58,7 +58,7 @@ from app.services.p2.network_model import (
     FarmSpec,
 )
 from app.services.p2.power_plant_controller import get_ppc_status, run_ppc_simulation
-from app.services.p2.short_circuit import calc_short_circuit
+from app.services.p2.short_circuit import calc_short_circuit, k_sensitivity
 from app.services.p2.statcom_sizing import validate_compensation
 
 router = APIRouter(prefix="/api/v1/grid", tags=["P2 HV Grid"])
@@ -163,6 +163,12 @@ class FRTRequest(BaseModel):
     p_ramp_pu_s: float = Field(
         1.0, ge=0.1, le=10.0, description="Post-fault active power ramp [p.u./s]"
     )
+    fault_kind: str = Field(
+        "3ph", pattern="^(3ph|2ph|1ph)$", description="Balanced, phase-phase or phase-earth"
+    )
+    k2_factor: float = Field(
+        0.0, ge=0.0, le=6.0, description="Converter negative-sequence current gain (0 = none)"
+    )
 
 
 # ── Endpoints ────────────────────────────────────────────────────
@@ -258,7 +264,10 @@ def short_circuit(case: str, spec: FarmSpecDep) -> ShortCircuitResponse:
     if case not in ("max", "min"):
         raise DomainValidationError(f"Invalid case: '{case}'. Must be 'max' or 'min'.")
     try:
-        return calc_short_circuit(case=case, spec=spec)
+        result = calc_short_circuit(case=case, spec=spec)
+        if case == "max":
+            result.k_sensitivity = k_sensitivity(spec)
+        return result
     except DomainError:
         raise
     except Exception as e:
@@ -305,6 +314,8 @@ def frt_simulation(
             swell_pu=request.swell_pu,
             p_ramp_pu_s=request.p_ramp_pu_s,
             spec=spec,
+            fault_kind=request.fault_kind,
+            k2_factor=request.k2_factor,
         )
     except DomainError:
         raise

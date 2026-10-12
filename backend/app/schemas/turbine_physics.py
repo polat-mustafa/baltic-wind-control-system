@@ -198,3 +198,50 @@ class TurbinePhysicsConfigResponse(BaseModel):
     yaw_deadband_deg: float = Field(description="Yaw deadband [deg]")
     yaw_power_loss_exponent: float = Field(description="Yaw cos^n exponent")
     source: str = Field(description="Origin of the turbine and controller data")
+
+
+class SupportStructureResponse(BaseModel):
+    """Tower + jacket natural frequencies vs the rotor 1P / 3P and the 50-year wave band."""
+
+    frequencies_hz: list[float]
+    first_bending_hz: float
+    reference_hz: float
+    band_1p_hz: list[float]
+    band_3p_hz: list[float]
+    wave_band_hz: list[float]
+    hs50_m: float
+    soft_stiff_ok: bool
+    margin_to_1p: float
+    margin_to_3p: float
+    required_margin: float
+    source: str
+
+
+class TowerLoadsResponse(BaseModel):
+    """One 10-minute turbulent run: rotor coupled to the tower fore-aft mode."""
+
+    wind_mean_ms: float
+    turbulence_intensity: float = Field(description="Rotor-effective TI")
+    time_s: list[float]
+    wind_ms: list[float]
+    thrust_mn: list[float]
+    tower_top_m: list[float]
+    base_moment_mnm: list[float]
+    power_mw: list[float]
+    del_base_moment_mnm: float = Field(description="1 Hz DEL, Wöhler m = 4")
+    mean_base_moment_mnm: float
+    max_base_moment_mnm: float
+    max_tower_top_m: float
+    total_damping_ratio: float = Field(description="Structural + aerodynamic, free decay")
+    source: str
+
+
+class TowerFatigueResponse(BaseModel):
+    """Tower-base fore-aft DEL per wind bin and over the site's Weibull distribution."""
+
+    bins_ms: list[float]
+    del_10min_mnm: list[float]
+    probability: list[float]
+    lifetime_del_mnm: float
+    wohler_m: float
+    source: str

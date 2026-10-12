@@ -73,6 +73,20 @@ export interface TransformerResult {
   ql_mvar: number;
 }
 
+/** Losses by component [MW]; keys from the backend load flow. */
+export type LossBreakdown = Partial<Record<LossComponent, number>>;
+
+export type LossComponent =
+  | "export_cable"
+  | "array_cables"
+  | "oss_transformers"
+  | "onshore_transformers"
+  | "wtg_transformers"
+  | "shunt_reactors"
+  | "statcom"
+  | "harmonic_filter"
+  | "auxiliary";
+
 export type LoadFlowScenario =
   | "full_load"
   | "partial_load"
@@ -92,6 +106,8 @@ export interface LoadFlowResult {
   poc_q_mvar: number;
   statcom_q_mvar: number;
   voltage_compliant: boolean;
+  /** Losses by component [MW] (export_cable, array_cables, oss_transformers, …, auxiliary). */
+  loss_breakdown_mw?: LossBreakdown;
   buses: BusResult[];
   lines: LineResult[];
   transformers: TransformerResult[];
@@ -118,6 +134,18 @@ export interface ShortCircuitResult {
   bus_results: ShortCircuitBusResult[];
   max_ikss_ka: number;
   max_ikss_bus: string;
+  breaker_adequate: boolean;
+  /** Network state of the case (both OSS units / coupler open, converter contribution). */
+  topology?: string;
+  /** Max case only: largest Ik'' at 66 / 220 kV for converter k = 1.0 / 1.2 / 1.5. */
+  k_sensitivity?: KSensitivityRow[];
+}
+
+export interface KSensitivityRow {
+  /** Converter fault-current multiple k (× rated current). */
+  k: number;
+  ikss_66kv_ka: number;
+  ikss_220kv_ka: number;
   breaker_adequate: boolean;
 }
 
@@ -155,8 +183,14 @@ export type FRTType = "lvrt" | "hvrt";
 
 export type FaultBus = "PSE_400kV" | "Onshore_220kV" | "OSS_220kV" | "OSS_66kV";
 
+/** Balanced, phase-phase or phase-earth fault (swell for HVRT in responses). */
+export type FaultKind = "3ph" | "2ph" | "1ph";
+
 export interface FRTParams {
   faultBus: FaultBus;
+  faultKind: FaultKind;
+  /** Converter negative-sequence current gain K2 (0 = none). */
+  k2Factor: number;
   /** Fault impedance on 100 MVA base [pu], 0 = bolted. */
   faultImpedancePu: number;
   faultDurationS: number;
@@ -173,6 +207,10 @@ export interface FRTTimePoint {
   reactive_power_mvar: number;
   reactive_current_pu: number;
   statcom_q_mvar: number;
+  /** Negative-sequence POC voltage [pu]. */
+  negative_sequence_pu?: number;
+  /** Lowest phase voltage at the POC [pu]. */
+  phase_min_pu?: number;
 }
 
 export interface FRTEnvelopePoint {
@@ -198,6 +236,14 @@ export interface FRTSimulationResult {
   /** PSE type-D profile in simulation time (LVRT only). */
   envelope: FRTEnvelopePoint[];
   time_series: FRTTimePoint[];
+  /** 3ph, 2ph (phase-phase), 1ph (earth) or swell. */
+  fault_kind?: string;
+  /** Lowest POC phase voltage in the event [pu]. */
+  min_phase_voltage_pu?: number;
+  /** Largest negative-sequence POC voltage in the event [pu]. */
+  max_negative_sequence_pu?: number;
+  /** Highest POC / terminal voltage in the 0.5 s after clearance [pu]. */
+  post_clearance_peak_pu?: number;
 }
 
 // ── Converter Comparison ────────────────────────────────────────

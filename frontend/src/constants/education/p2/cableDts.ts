@@ -66,8 +66,8 @@ export const cableDtsEducation: EducationContent = {
         "Subsea: R_ext is 1/1.4 of the J-tube's, so the conductor settles at ≈ 69 °C (R_AC solved at that temperature)",
       ],
       result:
-        "0.3 km of cable in air limits all 108 km. At SB-510's full output (≈ 820 A, 99 % of the rating) the J-tube runs at " +
-        "≈ 82 °C at 15 °C ambient — past the 80 °C alarm, below the limit. Better J-tube cooling would raise the rating " +
+        "0.3 km of cable in air limits all 108 km. At SB-510's full output (≈ 778 A, 94 % of the rating) the J-tube runs at " +
+        "≈ 75 °C at 15 °C ambient — below the 80 °C alarm. Better J-tube cooling would raise the rating " +
         "of the whole circuit.",
     },
   ],

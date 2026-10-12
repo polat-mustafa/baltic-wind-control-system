@@ -15,6 +15,8 @@ import type {
   FilterDesignRequest,
   FilterDesignResponse,
   HarmonicLimitsResponse,
+  ConverterStabilityRequest,
+  ConverterStabilityResponse,
 } from "../types/powerQuality";
 
 import { post, request } from "./apiClient";
@@ -60,4 +62,14 @@ export function designFilter(req: FilterDesignRequest): Promise<FilterDesignResp
 /** Fetch IEC 61000-3-6 harmonic planning levels for all voltage tiers. */
 export function getHarmonicLimits(): Promise<HarmonicLimitsResponse> {
   return request(`${BASE}/limits`);
+}
+
+/**
+ * Converter–array interaction: Norton converter models, generalized-Nyquist verdict,
+ * vector / phase margin and THD with Norton vs ideal sources (~3 s). Empty body = SB-510.
+ */
+export function runConverterStability(
+  req: ConverterStabilityRequest = {},
+): Promise<ConverterStabilityResponse> {
+  return post(`${BASE}/converter-stability`, req);
 }

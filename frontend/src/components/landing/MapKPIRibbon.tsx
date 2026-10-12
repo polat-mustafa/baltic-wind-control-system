@@ -12,6 +12,7 @@ import { useFleet } from "../../lib/fleet";
 import { MODELLED_RATE, TIME_COMPRESSION } from "../../lib/plant/failures";
 import { useGridEventSample } from "../../hooks/useGridEventSample";
 import type { FarmKPI } from "../../types/landing";
+import type { LossBreakdown } from "../../types/grid";
 import { gustMs as gustFromMean } from "../../utils/landingPhysics";
 import { useLandingStore } from "../../store/landingStore";
 import { useLiveGridStore, useStatcomQ } from "../../store/liveGridStore";
@@ -47,6 +48,16 @@ function Cell({ label, value, unit, sub, color = NORMAL, title }: CellProps) {
 }
 
 const FAULT_NOTE = `Turbine faults at offshore failure rates (Carroll et al. 2016: ${MODELLED_RATE.toFixed(1)} stops per turbine per year), time compressed ×${TIME_COMPRESSION}: one 5 s update is one plant hour. Curtailment: live RCE price below zero (PSE).`;
+
+/** " · cables … MW · transformers … MW · other … MW" from the load flow's loss breakdown (empty without one). */
+function lossSplit(b: LossBreakdown | undefined): string {
+  if (!b) return "";
+  const v = (k: keyof LossBreakdown) => b[k] ?? 0;
+  const cables = v("export_cable") + v("array_cables");
+  const tx = v("oss_transformers") + v("onshore_transformers") + v("wtg_transformers");
+  const all = Object.values(b).reduce((a, x) => a + (x ?? 0), 0);
+  return ` · cables ${cables.toFixed(1)} MW · transformers ${tx.toFixed(1)} MW · other ${(all - cables - tx).toFixed(1)} MW`;
+}
 
 export default function MapKPIRibbon({ kpis: baseKpis }: MapKPIRibbonProps) {
   // During a grid frequency event the ribbon shows the event's frequency.
@@ -144,7 +155,7 @@ export default function MapKPIRibbon({ kpis: baseKpis }: MapKPIRibbonProps) {
           unit="MW"
           sub={`export cable ${grid.export_cable_loading_pct.toFixed(0)} %`}
           color={grid.voltage_compliant ? NORMAL : ALARM}
-          title={`pandapower Newton-Raphson: ${grid.poc_p_mw.toFixed(1)} MW / ${grid.poc_q_mvar.toFixed(1)} MVAr at PSE 400 kV · V_OSS ${grid.v_oss_220_pu.toFixed(3)} pu`}
+          title={`pandapower Newton-Raphson: ${grid.poc_p_mw.toFixed(1)} MW / ${grid.poc_q_mvar.toFixed(1)} MVAr at PSE 400 kV · V_OSS ${grid.v_oss_220_pu.toFixed(3)} pu${lossSplit(grid.loss_breakdown_mw)}`}
         />
       )}
       <Cell

@@ -18,6 +18,7 @@ import { EducationButton } from "../ui/EducationButton";
 import { KPICard } from "../ui/KPICard";
 import FlickerFilterPanel from "./FlickerFilterPanel";
 import HarmonicSpectrumPanel from "./HarmonicSpectrumPanel";
+import ConverterStabilityPanel from "./ConverterStabilityPanel";
 import ResonanceScanPanel from "./ResonanceScanPanel";
 
 const BUSES: [PQBus, string][] = [
@@ -129,6 +130,9 @@ export default function PowerQualityDashboard() {
         <motion.div variants={item} className="grid grid-cols-1 xl:grid-cols-[3fr_2fr] gap-4">
           <ResonanceScanPanel />
           <FlickerFilterPanel />
+        </motion.div>
+        <motion.div variants={item}>
+          <ConverterStabilityPanel />
         </motion.div>
       </motion.div>
     </MotionConfig>

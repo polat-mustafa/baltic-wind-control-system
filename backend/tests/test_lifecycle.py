@@ -237,3 +237,35 @@ def test_api_rejects_bad_strings_and_sizes() -> None:
     assert client.post(URL, json={"n_turbines": 151}).status_code == 422
     assert client.post(URL, json={"alpha": 1.2}).status_code == 422
     assert client.post(URL, json={"runs": 5000}).status_code == 422
+
+
+# ── DNV weather-restricted operations (engineering audit B-8) ─────────────────
+
+
+def test_dnv_alpha_table() -> None:
+    """α falls with the reference period and rises with the Hs limit (DNV Rules for Marine
+    Operations Pt. 1 Ch. 2): 0.68 / 0.76 / 0.80 below 12 h … 0.51 / 0.59 / 0.63 at 72 h."""
+    from app.services.lifecycle.campaign import dnv_alpha
+
+    assert (dnv_alpha(10, 1.5), dnv_alpha(10, 3.0), dnv_alpha(10, 5.0)) == (0.68, 0.76, 0.80)
+    assert dnv_alpha(30, 2.0) == 0.56 and dnv_alpha(72, 3.0) == 0.59
+    assert dnv_alpha(200, 1.5) == 0.51  # beyond 72 h: the 72 h row, the strictest
+
+
+def test_contingency_lengthens_the_window_not_the_work() -> None:
+    """T_R = T_POP + T_C: a contingency only makes the needed window longer, so in calm
+    weather (no limits) the campaign takes the same time; in real weather it waits more."""
+    calm = {"limits": {v: (99.0, 99.0) for v in ("HLV", "WTIV", "CLV", "CTV", "SURVEY")}}
+    a = run_campaign(_inp(contingency=0.0, **calm))
+    b = run_campaign(_inp(contingency=1.0, **calm))
+    assert a["total_days"]["p50"] == pytest.approx(b["total_days"]["p50"], rel=0.01)
+    real0 = run_campaign(_inp(contingency=0.0))
+    real1 = run_campaign(_inp(contingency=1.0))
+    assert real1["total_days"]["p50"] > real0["total_days"]["p50"]
+
+
+def test_alpha_from_the_table_per_operation() -> None:
+    r = run_campaign(_inp(alpha=None))
+    assert r["alpha"] is None and r["contingency_fraction"] == 0.5
+    table = {0.51, 0.56, 0.59, 0.63, 0.64, 0.67, 0.68, 0.71, 0.75, 0.76, 0.8}
+    assert set(r["alpha_by_activity"].values()) <= table

@@ -32,7 +32,7 @@ router = APIRouter(prefix="/cable", tags=["M10 Cable DTS Thermal Monitoring"])
 )
 def get_dts_profile(
     spec: FarmSpecDep,
-    current_a: float = Query(818.0, ge=0.0, le=1600.0),
+    current_a: float = Query(778.0, ge=0.0, le=1600.0),
     ambient_temp_c: float = Query(15.0, ge=-5.0, le=35.0),
 ) -> DTSProfileResponse:
     """
@@ -102,3 +102,27 @@ def simulate_transient(body: DTSTransientRequest) -> DTSTransientResponse:
             body.duration_h,
         )
     )
+
+
+@router.get("/route-rating", summary="IEC 60287 rating of every export route section (SB-510)")
+async def get_route_rating() -> dict[str, object]:
+    """Steady-state IEC 60287 rating per route section (J-tube, subsea, HDD landfall, land),
+    the HDD design study, and each section's conductor temperature through the 30-year wind
+    hindcast (``cable_rating``); the method reproduces CIGRE TB 880 case 0-1."""
+    import asyncio
+
+    from app.services.p2 import cable_rating as cr
+
+    profile = await asyncio.to_thread(cr.load_profile_check)
+    return {
+        "sections": cr.route_ratings(),
+        "hdd_options": cr.hdd_options(),
+        "load_profile": profile,
+        "datasheet_rating_a": cr.DATASHEET_RATING_A,
+        "calibrated_t2_k_m_w": round(cr.calibrated_export_cable().t2_k_m_w, 4),
+        "verification": {
+            "case": "CIGRE TB 880 case 0-1 (132 kV, 630 mm² Cu, trefoil, 1 m)",
+            "rating_a": round(cr.reference_case_tb880().current_a, 1),
+            "reference_a": 821.8,
+        },
+    }

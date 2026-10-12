@@ -18,6 +18,7 @@ import { useProtectionStore } from "../../store/protectionStore";
 import type { FaultLocation } from "../../types/protection";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
+import EarthFaultPanel from "./EarthFaultPanel";
 import ProtectionZoneDiagram from "./ProtectionZoneDiagram";
 import RelayCoordinationTable from "./RelayCoordinationTable";
 import TCCCurvePlot from "./TCCCurvePlot";
@@ -218,6 +219,10 @@ export default function ProtectionDashboard() {
             </motion.div>
           </>
         )}
+
+        <motion.div variants={item}>
+          <EarthFaultPanel />
+        </motion.div>
       </motion.div>
     </MotionConfig>
   );

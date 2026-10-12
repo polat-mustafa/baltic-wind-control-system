@@ -290,3 +290,43 @@ async def emergency_stop_endpoint(
         breakers_opened=opened,
         message=f"Emergency trip by {request.initiated_by}: {len(opened)} device(s) opened.",
     )
+
+
+@router.get("/energisation/emt", summary="EMT: energising export cable 1 from shore")
+async def energisation_emt(
+    closing_angle_deg: float = 0.0,
+    pre_insertion: bool = False,
+    with_reactor: bool = True,
+    pole_scatter_ms: float = 1.0,
+) -> dict[str, object]:
+    """Electromagnetic transient of closing CB-ON-220-01 onto cable 1 and its line reactor
+    (``emt_energisation``): the reactor's DC offset against the 50 Hz breaker current
+    (zero-missing), the switching overvoltage at the open OSS end, and the waveforms
+    (every 0.5 ms, first 300 ms) of phase a."""
+    import asyncio
+
+    from app.services.p5.emt_energisation import DT_S, simulate_energisation
+
+    r = await asyncio.to_thread(
+        simulate_energisation,
+        closing_angle_deg,
+        (0.0, pole_scatter_ms, 2 * pole_scatter_ms),
+        pre_insertion,
+        with_reactor,
+        0.6,
+    )
+    every = round(0.0005 / DT_S)
+    n = round(0.3 / DT_S)
+    return {
+        "closing_times_ms": r.closing_times_ms,
+        "dc_over_ac": r.dc_over_ac,
+        "zero_missing_ms": r.zero_missing_ms,
+        "zero_missing": r.zero_missing,
+        "peak_far_end_pu": r.peak_far_end_pu,
+        "steady_far_end_pu": r.steady_far_end_pu,
+        "steady_breaker_current_a": r.steady_breaker_current_a,
+        "time_ms": [round(float(x) * 1e3, 2) for x in r.time_s[:n:every]],
+        "breaker_current_a": [round(float(x), 1) for x in r.breaker_current_a[0, :n:every]],
+        "reactor_current_a": [round(float(x), 1) for x in r.reactor_current_a[0, :n:every]],
+        "far_end_voltage_kv": [round(float(x), 2) for x in r.far_end_voltage_kv[0, :n:every]],
+    }

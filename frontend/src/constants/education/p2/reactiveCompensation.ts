@@ -69,8 +69,8 @@ export const reactiveCompensationEducation: EducationContent = {
       scenario: "P = P_max, OLTCs regulating, farm buses within 0.90–1.10 p.u., no cable or transformer above its rating",
       steps: [
         "Required: +0.40 × 510 = +204 MVAR, −0.35 × 510 = −178.5 MVAR at PSE 400 kV",
-        "At 510 MW the export cables already run at ≈ 99 % of 825 A — Q sent through them (WTGs, STATCOM) has almost no room",
-        "Onshore reactors sit on the onshore busbar and do not load the cable: both out → +247 MVAR, both in → −205 MVAR (with the WTG/STATCOM headroom the cable still allows)",
+        "At 510 MW the export cables already run at ≈ 94 % of 825 A — Q sent through them (WTGs, STATCOM) has almost no room",
+        "Onshore reactors sit on the onshore busbar and do not load the cable: both out → +257 MVAR, both in → −203 MVAR (with the WTG/STATCOM headroom the cable still allows)",
       ],
       result:
         "The range is met, but by the onshore reactors, not by the converters: a voltage-only check would have claimed +532 / −590 MVAR at 138 % cable loading. " +

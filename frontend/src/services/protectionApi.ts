@@ -10,6 +10,7 @@ import type {
   RelaySettingsUpdate,
   CoordinationStudyRequest,
   CoordinationStudyResponse,
+  EarthFaultStudy,
   FaultClearanceRequest,
   FaultClearanceResponse,
   TCCPlotData,
@@ -55,4 +56,12 @@ export function runFaultClearance(
 /** Fetch TCC curve data for all relays (for overlay plot). */
 export function getTCCData(): Promise<TCCPlotData> {
   return request(`${BASE}/tcc`);
+}
+
+/**
+ * Earth fault on a 66 kV string feeder of the NER-earthed array: IEC 60909 Ik1'',
+ * feeder / NER residual (51N) stages, selectivity, sympathetic-trip and NER-rating checks.
+ */
+export function getEarthFaultStudy(faultResistanceOhm = 0): Promise<EarthFaultStudy> {
+  return request(`${BASE}/earth-fault?fault_resistance_ohm=${faultResistanceOhm}`);
 }

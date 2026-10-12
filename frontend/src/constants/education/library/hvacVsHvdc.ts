@@ -84,7 +84,7 @@ export const hvacVsHvdcEducation: EducationContent = {
         "4 × 180 MVAR shunt reactors, one per cable at each end, absorb most of the ~624 MVAR charging power",
       ],
       result:
-        "Two parallel 220 kV three-core cables with onshore + offshore reactors carry the 510 MW farm at 99 % of their " +
+        "Two parallel 220 kV three-core cables with onshore + offshore reactors carry the 510 MW farm at 94 % of their " +
         "rating (P2 load flow) — at 108 km the charging current already takes 13 % of each cable's capacity. HVDC " +
         "would still add two converter stations and ≈ 2 % converter loss; a longer route or a bigger farm would " +
         "need a third circuit, mid-route compensation or HVDC.",

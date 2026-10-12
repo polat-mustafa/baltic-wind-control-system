@@ -280,3 +280,28 @@ export interface EmergencyProcedure {
   reference_document: string;
   communication_protocol: string[];
 }
+
+/** GET /commissioning/energisation/emt — EMT of closing CB-ON-220-01 onto export cable 1 (phase a waveforms). */
+export interface EnergisationEmtParams {
+  closingAngleDeg: number;
+  poleScatterMs: number;
+  preInsertion: boolean;
+  withReactor: boolean;
+}
+
+export interface EnergisationEmt {
+  /** Closing instant of each pole [ms]. */
+  closing_times_ms: number[];
+  /** DC offset / AC amplitude of the breaker current [–]. */
+  dc_over_ac: number;
+  /** Longest time the breaker current has no zero crossing [ms]. */
+  zero_missing_ms: number;
+  zero_missing: boolean;
+  peak_far_end_pu: number;
+  steady_far_end_pu: number;
+  steady_breaker_current_a: number;
+  time_ms: number[];
+  breaker_current_a: number[];
+  reactor_current_a: number[];
+  far_end_voltage_kv: number[];
+}

@@ -229,20 +229,16 @@ async def run_coordination_study(
 ) -> CoordinationStudyResponse:
     """Run a Time-Current Characteristic coordination study.
 
-    Simulates a 3-phase fault at the specified location and verifies
+    Simulates a 3-phase or phase-phase fault at the specified location and verifies
     that the nearest relay operates first with adequate grading margins
-    to the upstream backup relay.
+    to the upstream backup relay. Fault currents come from IEC 60909 (pandapower) and
+    the series-impedance chain of the farm's design (SB-510: ≈ 19.5 kA max / 9.6 kA min
+    at the OSS 66 kV busbar). Earth faults: ``GET /protection/earth-fault``.
 
-    Fault locations:
-    - string_feeder     : 66 kV string cable, near-end fault (8.5 kA)
-    - export_cable_near : 220 kV export cable, 5 km from OSS (7.2 kA)
-    - export_cable_mid  : 220 kV export cable, 22 km midpoint (5.1 kA)
-    - export_cable_far  : 220 kV export cable, 40 km from OSS (2.8 kA)
-    - hv_busbar         : 220 kV busbar fault (12.4 kA)
+    Fault locations: string_feeder, oss_busbar_66kv, export_cable (position_pct from the
+    onshore end), oss_busbar_220kv (legacy names export_cable_near/mid/far, hv_busbar).
 
-    Grading requirements:
-    - PTOC (overcurrent): minimum 300 ms margin between stages
-    - PDIS (distance): minimum 400 ms margin between zones
+    Grading requirement: ≥ 300 ms between a main stage and its backup.
     """
     settings = _effective_settings(spec)
     result = svc.run_coordination_study(
@@ -367,3 +363,28 @@ async def get_tcc_data(
     varies widely (e.g. at different distances along a long cable).
     """
     return _tcc(_effective_settings(spec), "default", spec, relay_ids)
+
+
+@router.get(
+    "/protection/earth-fault",
+    summary="Earth fault on a 66 kV string feeder (resistance-earthed array)",
+)
+async def earth_fault_study(
+    spec: FarmSpecDep,
+    fault_resistance_ohm: Annotated[float, Query(ge=0.0, le=10_000.0)] = 0.0,
+) -> dict[str, Any]:
+    """IEC 60909 earth-fault currents (min / max), the feeder and NER residual stages,
+    selectivity, sympathetic-trip and NER-rating checks, and the highest fault resistance
+    the feeder stage still detects (``protection_relay.run_earth_fault_study``)."""
+    result = svc.run_earth_fault_study(fault_resistance_ohm, spec)
+    result["settings"] = [
+        {
+            "setting_id": s.setting_id,
+            "description": s.description,
+            "pickup_a": s.pickup_value,
+            "time_delay_s": s.time_delay,
+            "location": s.location,
+        }
+        for s in result["settings"]
+    ]
+    return result

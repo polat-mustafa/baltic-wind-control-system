@@ -98,7 +98,15 @@ class LoadFlowResponse(BaseModel):
     converged: bool = Field(description="Newton-Raphson convergence status")
     v_min_pu: float = Field(description="Minimum bus voltage [p.u.]")
     v_max_pu: float = Field(description="Maximum bus voltage [p.u.]")
-    total_loss_mw: float = Field(description="Total network active power losses [MW]")
+    total_loss_mw: float = Field(
+        description="All electrical losses + OSS auxiliary load = WTG output − POC export [MW]"
+    )
+    loss_breakdown_mw: dict[str, float] = Field(
+        default_factory=dict,
+        description="Losses by component [MW]: export_cable, array_cables, oss_transformers, "
+        "onshore_transformers, wtg_transformers, shunt_reactors, statcom, harmonic_filter, "
+        "auxiliary",
+    )
     total_generation_mw: float = Field(description="Total active power generation [MW]")
     poc_p_mw: float = Field(0.0, description="Active power delivered to PSE 400 kV [MW]")
     poc_q_mvar: float = Field(
@@ -146,7 +154,12 @@ class LiveLoadFlowResponse(BaseModel):
     total_generation_mw: float = Field(description="Sum of WTG output [MW]")
     poc_p_mw: float = Field(description="Active power delivered to PSE 400 kV [MW]")
     poc_q_mvar: float = Field(description="Reactive power delivered to PSE 400 kV [MVAR]")
-    total_loss_mw: float = Field(description="Cable + transformer losses [MW]")
+    total_loss_mw: float = Field(
+        description="All electrical losses + OSS auxiliary load = WTG output − POC export [MW]"
+    )
+    loss_breakdown_mw: dict[str, float] = Field(
+        default_factory=dict, description="Losses by component [MW] (as LoadFlowResponse)"
+    )
     statcom_q_mvar: float = Field(description="STATCOM set-point after auto-dispatch [MVAR]")
     reactors_in_service: int = Field(
         default=0, description="Shunt reactors in service after reactor switching"
@@ -187,7 +200,7 @@ class ShortCircuitBusResult(BaseModel):
 class ShortCircuitResponse(BaseModel):
     """Complete IEC 60909 short-circuit analysis result.
 
-    Contains max (c=1.1) and min (c=0.95) cases for breaker sizing
+    Contains max (c = 1.10) and min (c = 1.00) cases for breaker sizing
     and protection coordination.
     """
 
@@ -202,6 +215,15 @@ class ShortCircuitResponse(BaseModel):
     max_ikss_bus: str = Field(description="Bus with highest Ik''")
     breaker_adequate: bool = Field(
         description="True if all Ik'' values within breaker rated breaking capacity"
+    )
+    topology: str = Field(
+        "",
+        description="Network state of the case: max = both OSS units, every converter at k; "
+        "min = OSS bus coupler open (one unit), no converter infeed",
+    )
+    k_sensitivity: list[dict[str, float | bool]] = Field(
+        default_factory=list,
+        description="Max case: largest Ik'' at 66 / 220 kV for converter k = 1.0 / 1.2 / 1.5",
     )
 
 
@@ -307,6 +329,8 @@ class FRTTimePoint(BaseModel):
         description="WTG reactive current [p.u. of rating], > 0 capacitive"
     )
     statcom_q_mvar: float = Field(0.0, description="STATCOM reactive power [MVAR]")
+    negative_sequence_pu: float = Field(0.0, description="Negative-sequence POC voltage [p.u.]")
+    phase_min_pu: float = Field(0.0, description="Lowest phase voltage at the POC [p.u.]")
 
 
 class FRTEnvelopePoint(BaseModel):
@@ -358,6 +382,16 @@ class FRTSimulationResponse(BaseModel):
     time_series: list[FRTTimePoint] = Field(
         default_factory=list,
         description="Time-domain simulation data",
+    )
+    fault_kind: str = Field("3ph", description="3ph, 2ph (phase-phase), 1ph (earth) or swell")
+    min_phase_voltage_pu: float = Field(0.0, description="Lowest POC phase voltage in the event")
+    max_negative_sequence_pu: float = Field(
+        0.0, description="Largest negative-sequence POC voltage in the event [p.u.]"
+    )
+    post_clearance_peak_pu: float = Field(
+        0.0,
+        description="Highest POC / terminal voltage in the 0.5 s after clearance [p.u.] — the "
+        "overshoot when cable charging returns while converter Iq still decays",
     )
 
 

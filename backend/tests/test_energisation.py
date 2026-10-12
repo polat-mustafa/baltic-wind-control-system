@@ -4,11 +4,13 @@ Hand checks (108 km): Q_c = ω·C·U²·l = 2π·50·190e-9·108·220e3² = 312.
 I_c = Q_c/(√3·U) = 819 A at 1 pu; Ferranti 1/cos(βl) = 1.0431.
 """
 
+import cmath
 import math
 
 import pytest
 
 from app.services.p2.network_model import (
+    EXPORT_CABLE_1000,
     OLTC_STEP_PERCENT,
     SB510,
     TRAFO_66_220_I0_PERCENT,
@@ -23,6 +25,7 @@ from app.services.p5.energisation import (
     network_snapshot,
     onshore_tap,
     section_a_mw,
+    soak_thermal_check,
 )
 from app.services.p5.equipment_state import EquipmentState, build_initial_state
 
@@ -74,11 +77,18 @@ def test_cable_energised_with_its_onshore_line_reactor():
     snap = network_snapshot(state_after("cable"))
     send, far = snap.bus("ONS220"), snap.bus("CABLE1")
     assert far.vm_pu / send.vm_pu == pytest.approx(ferranti_ratio(), abs=5e-4)
-    # the cable still carries its full charging current at the sending end: Q_c(U) / (√3 U),
-    # pandapower's π model puts half of C at the far end, at the Ferranti-raised voltage
-    i_c = cable_charging_mvar(send.kv) / (math.sqrt(3) * send.kv) * 1e3
-    assert snap.cable_i_send_a == pytest.approx(i_c * (1 + far.vm_pu / send.vm_pu) / 2, rel=0.005)
-    assert snap.cable_loading_pct == pytest.approx(101.0, abs=0.5)  # minutes, until the OSS is live
+    # the cable still carries its full charging current at the sending end; as an exact long
+    # line open at the far end: I_s = U_s / (√3·Z_c) · tanh(γl) (≈ Q_c(U)/(√3 U) · 1.02)
+    cab = EXPORT_CABLE_1000
+    z = complex(cab.r_ac_ohm_per_km, cab.x_ohm_per_km)
+    y = complex(0.001, 1.0) * 2 * math.pi * 50 * cab.c_nf_per_km * 1e-9  # tan δ 0.001
+    gl, zc = cmath.sqrt(z * y) * 108.0, cmath.sqrt(z / y)
+    i_s = abs(send.kv * 1e3 / math.sqrt(3) / zc * cmath.tanh(gl))
+    assert snap.cable_i_send_a == pytest.approx(i_s, rel=0.002)
+    # just over the 825 A static rating for the 24 h soak: thermally fine (soak_thermal_check)
+    assert snap.cable_loading_pct == pytest.approx(101.7, abs=0.5)
+    ok, reading = soak_thermal_check(snap.cable_i_send_a, 108.0)
+    assert ok and "24 h soak" in reading
     assert snap.cable_i_recv_a == pytest.approx(0.0, abs=1e-3)
     # the line reactor takes 180 Mvar · U² of it at the onshore end (Rule 4: absorbing < 0)
     assert snap.reactor_on_q_mvar == pytest.approx(-180.0 * send.vm_pu**2, rel=0.01)
@@ -119,10 +129,10 @@ def test_rated_output_of_section_a():
     # Section A is 270 MW. Analytically one circuit carries √3·220 kV·√(825² − (Ic/2)²)
     # ≈ 273 MW at 108 km, but with the onshore OLTC held at its pre-set the onshore busbar
     # sags to 0.97 pu and the STATCOM, holding the OSS at 1.00 pu, sends ≈ 100 Mvar ashore:
-    # the load flow reaches 825 A at 233 MW. The PPC holds circuit 1 at 90 % of that.
+    # the load flow reaches 825 A at 232 MW. The PPC holds circuit 1 at 90 % of that.
     assert section_a_mw(SB510) == 270.0
     assert export_circuit_capacity_mw(108.0) == pytest.approx(273.0, abs=0.5)
-    assert circuit1_capability_mw(SB510) == pytest.approx(232.8, abs=0.5)
+    assert circuit1_capability_mw(SB510) == pytest.approx(232.0, abs=0.5)
     assert (
         snap.generation_mw
         == pytest.approx(circuit1_limit_mw(SB510))

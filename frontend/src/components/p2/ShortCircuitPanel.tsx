@@ -99,6 +99,38 @@ export default function ShortCircuitPanel() {
         className="w-full"
         style={{ height: CHART_HEIGHT }}
       />
+      {shortCircuit.topology && (
+        <p className="mt-1 text-xs text-text-muted">
+          <span className="font-medium">Network state:</span> <span>{shortCircuit.topology}</span>
+        </p>
+      )}
+      {shortCircuit.k_sensitivity && shortCircuit.k_sensitivity.length > 0 && (
+        <div className="mt-2">
+          <p className="text-xs font-semibold text-text-secondary">Converter contribution k — sensitivity of the breaker duty</p>
+          <table className="mt-1 w-full max-w-md text-xs">
+            <thead>
+              <tr className="text-left text-text-muted">
+                <th className="py-0.5 pr-2 font-medium">k [× I_rated]</th>
+                <th className="py-0.5 pr-2 text-right font-medium">Ik'' 66 kV [kA]</th>
+                <th className="py-0.5 pr-2 text-right font-medium">Ik'' 220 kV [kA]</th>
+                <th className="py-0.5 text-right font-medium">Breakers</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shortCircuit.k_sensitivity.map((r) => (
+                <tr key={r.k} className="border-t border-border-primary text-text-secondary">
+                  <td className="py-0.5 pr-2 font-mono">{r.k.toFixed(1)}</td>
+                  <td className="py-0.5 pr-2 text-right font-mono">{r.ikss_66kv_ka.toFixed(2)}</td>
+                  <td className="py-0.5 pr-2 text-right font-mono">{r.ikss_220kv_ka.toFixed(2)}</td>
+                  <td className={`py-0.5 text-right ${r.breaker_adequate ? "text-status-normal" : "text-status-alarm"}`}>
+                    {r.breaker_adequate ? "✓ adequate" : "✗ exceeded"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </ChartWrapper>
   );
 }

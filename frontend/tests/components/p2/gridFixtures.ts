@@ -21,6 +21,14 @@ function loadFlow(scenario: LoadFlowScenario, gen: number, v: number, loading: n
     v_min_pu: v - 0.002,
     v_max_pu: v + 0.002,
     total_loss_mw: gen * 0.0125,
+    // split of total_loss_mw (sums to gen × 0.0125)
+    loss_breakdown_mw: {
+      export_cable: gen * 0.006,
+      array_cables: gen * 0.002,
+      oss_transformers: gen * 0.002,
+      onshore_transformers: gen * 0.0015,
+      auxiliary: gen * 0.001,
+    },
     total_generation_mw: gen,
     poc_p_mw: gen * 0.9875,
     poc_q_mvar: -42,
@@ -58,6 +66,12 @@ const shortCircuit: ShortCircuitResult = {
   max_ikss_ka: 21.42,
   max_ikss_bus: "OSS_66kV",
   breaker_adequate: true,
+  topology: "both OSS units, converters at k = 1.2",
+  k_sensitivity: [
+    { k: 1.0, ikss_66kv_ka: 20.9, ikss_220kv_ka: 9.8, breaker_adequate: true },
+    { k: 1.2, ikss_66kv_ka: 21.42, ikss_220kv_ka: 9.9, breaker_adequate: true },
+    { k: 1.5, ikss_66kv_ka: 22.2, ikss_220kv_ka: 10.1, breaker_adequate: true },
+  ],
   bus_results: [
     { bus_name: "PSE_400kV", vn_kv: 400, ikss_ka: 15.34, ip_ka: 36.9, skss_mw: 10630, breaker_ka: 50, making_ka: 125 },
     { bus_name: "OSS_66kV", vn_kv: 66, ikss_ka: 21.42, ip_ka: 50.48, skss_mw: 2449, breaker_ka: 25, making_ka: 62.5 },
@@ -109,6 +123,10 @@ const frtResult: FRTSimulationResult = {
   terminal_voltage_pu: 0.304,
   passive_voltage_pu: 0.333,
   recovery_limit_s: 5,
+  fault_kind: "3ph",
+  min_phase_voltage_pu: 0.327,
+  max_negative_sequence_pu: 0,
+  post_clearance_peak_pu: 1.089,
   envelope: [
     { time_s: 0.2, voltage_pu: 0 },
     { time_s: 0.35, voltage_pu: 0 },
@@ -168,7 +186,7 @@ export const gridState = {
   converterComparison,
   activeScenario: "full_load" as LoadFlowScenario,
   frtType: "lvrt" as const,
-  frtParams: { faultBus: "PSE_400kV" as const, faultImpedancePu: 0.005, faultDurationS: 0.15, kFactor: 2 },
+  frtParams: { faultBus: "PSE_400kV" as const, faultKind: "3ph" as const, k2Factor: 0, faultImpedancePu: 0.005, faultDurationS: 0.15, kFactor: 2 },
   converterScenario: "strong_grid" as const,
   phaseJumpDeg: 20,
   frtLoading: false,

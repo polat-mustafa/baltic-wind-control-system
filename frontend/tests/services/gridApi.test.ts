@@ -83,11 +83,19 @@ describe("getSTATCOMSizing", () => {
 describe("runFRT", () => {
   it("sends POST with fault parameters", async () => {
     mockJsonResponse({ stayed_connected: true });
-    await api.runFRT("lvrt", { faultBus: "PSE_400kV", faultImpedancePu: 0.005, faultDurationS: 0.15, kFactor: 2 });
+    await api.runFRT("lvrt", { faultBus: "PSE_400kV", faultKind: "2ph", k2Factor: 2, faultImpedancePu: 0.005, faultDurationS: 0.15, kFactor: 2 });
     expect(mockFetch).toHaveBeenCalledWith(
       `${BASE}/frt/lvrt`,
       expect.objectContaining({ method: "POST" }),
     );
+    expect(JSON.parse(mockFetch.mock.calls.at(-1)?.[1].body)).toEqual({
+      fault_bus: "PSE_400kV",
+      fault_impedance_pu: 0.005,
+      fault_duration_s: 0.15,
+      k_factor: 2,
+      fault_kind: "2ph",
+      k2_factor: 2,
+    });
   });
 });
 

@@ -1,0 +1,70 @@
+cff-version: 1.2.0
+message: >-
+  If you use OffshoreForge in research or teaching, please cite it as below. Results
+  depend on the bundled datasets; their SHA-256 hashes are pinned in
+  backend/data_manifest.json, and the validation evidence (docs/engineering-audit-2026-10.md,
+  the in-app Evidence page) is regenerated from the tests.
+title: "OffshoreForge: an offshore wind engineering training and analysis platform"
+abstract: >-
+  Lifecycle-coupled engineering platform built around the SB-510 reference case
+  (510 MW, 34 × IEA-15-240-RWT, 66 kV array, 2 × 108 km 220 kV HVAC export): wind
+  resource and wake-based AEP, load flow, IEC 60909 short circuit, IEC 60287 cable rating,
+  harmonics and converter–network stability, FRT, EMT energisation, IEC 61850 SCADA,
+  forecasting, commissioning, support-structure dynamics, tower fatigue and fleet O&M,
+  each checked against published references, standards or closed-form results.
+type: software
+authors:
+  - family-names: Polat
+    given-names: Mustafa
+repository-code: "https://github.com/polat-mustafa/offshoreforge"
+license: MIT
+version: 0.1.0
+date-released: "2026-10-12"
+keywords:
+  - offshore wind
+  - power systems
+  - HVAC export
+  - IEC 60909
+  - IEC 60287
+  - IEC 61850
+  - wind turbine
+  - engineering education
+references:
+  - type: article
+    title: >-
+      pandapower — An Open-Source Python Tool for Convenient Modeling, Analysis, and
+      Optimization of Electric Power Systems
+    authors:
+      - family-names: Thurner
+        given-names: Leon
+      - family-names: Scheidler
+        given-names: Alexander
+      - family-names: Schäfer
+        given-names: Florian
+      - family-names: Menke
+        given-names: Jan-Hendrik
+      - family-names: Dollichon
+        given-names: Julian
+      - family-names: Meier
+        given-names: Friederike
+      - family-names: Meinecke
+        given-names: Steffen
+      - family-names: Braun
+        given-names: Martin
+    journal: IEEE Transactions on Power Systems
+    volume: 33
+    issue: 6
+    start: 6510
+    end: 6521
+    year: 2018
+    doi: 10.1109/TPWRS.2018.2829021
+  - type: report
+    title: Definition of the IEA 15-Megawatt Offshore Reference Wind Turbine
+    authors:
+      - family-names: Gaertner
+        given-names: Evan
+      - name: and others
+    institution:
+      name: National Renewable Energy Laboratory
+    number: NREL/TP-5000-75698
+    year: 2020

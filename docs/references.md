@@ -44,6 +44,11 @@ Citation rules used here:
 | Cable current rating; route and circuits of the modelled farm, full-output and N-1 survivor current | `services/p2/cable_dts.py`, `routers/p2_cable_dts.py` (`/cable/dts/farm`) | [S7] |
 | Cable R, C, X, ratings (provenance note at the cable constants) | `services/p2/network_model.py` | [S33], [33], [34], [S7] |
 | Power quality (harmonic filter: damped high-pass) | `services/p2/power_quality.py` | [S8], [S9], [S36] |
+| Plant losses (WTG transformers, reactors, STATCOM, auxiliaries), annual electrical loss over the site Weibull | `services/p2/network_model.py` (`loss_breakdown_mw`), `annual_losses.py` | [10] |
+| IEC 60287 rating per route section, HDD landfall, 30-year load-profile check; verified on CIGRE TB 880 case 0-1 | `services/p2/cable_rating.py`, `routers/p2_cable_dts.py` (`/cable/route-rating`) | [S7], [54] |
+| Detailed harmonic network, converter Norton admittance (delayed current control, damped LCL), generalized Nyquist stability | `services/p2/harmonic_stability.py` | [55], [56], [57], [58] |
+| Zero sequence, NER earthing, single-phase faults, 51N settings | `services/p2/short_circuit.py` (`earth_fault_levels`), `services/p5/protection_relay.py` | [S4], [S16] |
+| Cross-checks: load flow re-solved in OpenDSS; wake models vs FLORIS | `scripts/audit/c2_opendss_load_flow.py`, `c2_floris_wakes.py` | [59], [60] |
 
 ## P3 — SCADA and substation automation
 
@@ -83,6 +88,7 @@ Citation rules used here:
 | Circuit-breaker duties | `services/p5/switching_programme.py`, `sat.py` | [S17] |
 | Grid-code compliance tests | `services/p5/grid_code_testing.py` | [S5], [S18] |
 | Arc-flash incident energy | `services/p5/loto.py` | [S19] |
+| EMT of cable + reactor energisation (trapezoidal companion models, pre-insertion resistor, point-on-wave) | `services/p5/emt_energisation.py` | [61], [52] |
 
 ## Digital twin — condition monitoring
 
@@ -107,6 +113,8 @@ Citation rules used here:
 | Extreme operating gust check | `tests/test_turbine_physics.py` | [S1] §6.3.3.2 |
 | Steady state vs the official IEA 15 MW table (rpm, pitch, power, thrust at 6–20 m/s) | `tests/test_turbine_physics_reference.py` | [26] |
 | CMS: bearing defect frequencies, generator electrical lines, hydraulic-oil grade | `services/p3/cms.py` | [S24], [S35] |
+| Tower + jacket natural frequencies (3D frame FE) vs 1P / 3P; verified against DEME's OpenFAST jacket model | `services/turbine_physics/support_structure.py` | [26], [62], [S41] |
+| Tower fore-aft loads: NTM Kaimal wind, IEC coherence, rainflow, DEL | `services/turbine_physics/loads.py` | [S1], [S42], [S43] |
 
 ## Site assessment — screening
 
@@ -149,6 +157,8 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 | O&M working day and CTV transit from the O&M port | `backend/app/services/p1/weather_window.py` (`find_maintenance_window`) | [40] |
 | Synthetic sea states: Rayleigh Hs, Weibull k = 2 wind, AR(1) persistence, monthly Baltic means | `backend/app/services/lifecycle/weather.py` (monthly means of `services/p1/weather_window.py`) | Marginals as the O&M weather-window model; persistence and wind–wave correlation *illustrative* |
 | Hub-height wind for the jack-up crane limit (power law, α = 0.14) | `backend/app/services/lifecycle/weather.py` | [S30] |
+| Extreme sea state Hs50 (Gumbel on annual maxima), Tp range | `backend/app/services/lifecycle/weather.py` (`extreme_hs`) | [S44] |
+| Availability from failure rates and weather windows; fleet O&M simulation (crews, shifts, jack-up campaigns) | `backend/app/services/lifecycle/availability_model.py`, `om_simulation.py` | [50], [63] |
 | As-built register: strings, OSS feeder bays, cable sections | `frontend/src/lib/lifecycle/farm.ts` (cable tree of `lib/layout/cables.ts`) | as the layout canvas |
 | Removal of disused installations; publicity of what stays | `frontend/src/lib/lifecycle/decommissioning.ts` | [S25] Art. 60(3), [S31] §3.1, 3.2, 3.6 |
 | National decommissioning programmes (example regime) | `frontend/src/pages/DecommissioningPage.tsx` | [S32] |
@@ -229,6 +239,16 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 51. Hjerrild, J., Sahukari, S., Juamperez, M., Kocewiak, Ł. H., Vilhelmsen, M. A., Okholm, J., Zouraraki, M., Kvarts, T. "Hornsea Projects One and Two – Design and Execution of the Grid Connection for the World's Largest Offshore Wind Farms." CIGRE Symposium, Aalborg, June 2019 (reactors at both cable ends and a mid-point station, STATCOMs onshore, onshore variable reactor tapped below 50 % of the cable at energisation).
 52. da Silva, F. F., Bak, C. L., Gudmundsdottir, U. S., Wiechowski, W., Knardrupgård, M. R. "Methods to Minimize Zero-Missing Phenomenon." *IEEE Transactions on Power Delivery* 25(4), 2923–2930, 2010. DOI 10.1109/TPWRD.2010.2045010.
 53. Baltic Power (ORLEN / Northland Power): balticpower.pl project pages and the operator's films "How is it installed?" — episodes OSS (two OSS, 230/66 kV GIS) and "Kable morskie" (350 km of cable: 130 km offshore export, 80 km onshore export), read 2026-10-11; 76 × 15 MW, four export cables to Choczewo.
+54. CIGRE TB 880 — *Power cable rating examples for calculation tool verification*, 2022; open re-implementation: github.com/frdmendoza/cbl_CIGRE_TB880.
+55. Harnefors, L., Wang, X., Yepes, A. G., Blaabjerg, F. "Passivity-based stability assessment of grid-connected VSCs — an overview." *IEEE Journal of Emerging and Selected Topics in Power Electronics* 4(1), 2016.
+56. Wang, X., Loh, P. C., Blaabjerg, F. "Delay-dependent stability of single-loop controlled grid-connected inverters with LCL filters." *IEEE Transactions on Power Electronics* 31(1), 2016.
+57. Peña-Alzola, R., Liserre, M., Blaabjerg, F., et al. "Analysis of the passive damping losses in LCL-filter-based grid converters." *IEEE Transactions on Power Electronics* 28(6), 2013.
+58. MacFarlane, A. G. J., Postlethwaite, I. "The generalized Nyquist stability criterion and multivariable root loci." *International Journal of Control* 25(1), 1977.
+59. EPRI OpenDSS (Open Distribution System Simulator), via opendssdirect.py 0.9 (DSS C-API).
+60. NREL FLORIS 4.2.1, github.com/NREL/floris; TurbOPark Gaussian: Pedersen, J. G., et al., *J. Phys.: Conf. Ser.* 2265, 022063, 2022.
+61. Dommel, H. W. "Digital computer solution of electromagnetic transients in single- and multiphase networks." *IEEE Transactions on Power Apparatus and Systems* PAS-88(4), 1969.
+62. DEME Group, IEA-15-240-RWT on a 3-legged jacket for 50 m water depth (OpenFAST / SubDyn input), github.com/mmrocze2/IEA-15-240-RWT.
+63. NREL WOMBAT (Windfarm Operations and Maintenance cost-Benefit Analysis Tool), github.com/WISDEM/WOMBAT — the structure the O&M simulation follows (not run here).
 
 ## Standards and regulations
 
@@ -272,3 +292,7 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 - **[S38]** DNV-RP-0360 — Subsea power cables in shallow water (cable burial assessment and protection).
 - **[S39]** ICPC Recommendation No. 2 — Cable routing and reporting criteria (crossings as close to 90° as possible, not below 45°), International Cable Protection Committee.
 - **[S40]** IEC 61869-2:2012 — Instrument transformers — Part 2: Additional requirements for current transformers (standard rated primary currents).
+- **[S41]** DNV-ST-0126 — Support structures for wind turbines (frequency margins to 1P / 3P).
+- **[S42]** ASTM E1049-85 (reapproved 2017) — Standard practices for cycle counting in fatigue analysis.
+- **[S43]** DNV-RP-C203 — Fatigue design of offshore steel structures (S-N slope m = 4 for welded steel in air at high cycles, as used for the DEL).
+- **[S44]** DNV-RP-C205 — Environmental conditions and environmental loads (Hs–Tp relation of the extreme sea state).

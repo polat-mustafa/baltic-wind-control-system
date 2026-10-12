@@ -150,7 +150,7 @@ class TestOwnFarm:
         client = TestClient(app)
         base = "/api/v1/grid/cable/dts"
         sb = client.get(f"{base}/farm").json()
-        assert (sb["cable_length_km"], sb["num_circuits"], sb["normal_current_a"]) == (108, 2, 818)
+        assert (sb["cable_length_km"], sb["num_circuits"], sb["normal_current_a"]) == (108, 2, 778)
         farm = '{"name":"T","strings":[4,4],"export_km":40,"array_km":1.6}'
         h = {"X-Farm": quote(farm)}
         own = client.get(f"{base}/farm", headers=h).json()

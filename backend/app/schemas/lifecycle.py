@@ -41,8 +41,15 @@ class CampaignRequest(BaseModel):
     )
     foundation: Literal["monopile", "jacket"] = "monopile"
     start_date: date = date(2028, 4, 1)
-    alpha: float = Field(
-        0.8, ge=0.5, le=1.0, description="DNV-ST-N001 alpha factor: OP_WF = α · OP_LIM"
+    alpha: float | None = Field(
+        0.8,
+        ge=0.5,
+        le=1.0,
+        description="DNV alpha factor OP_WF = α · OP_LIM for every operation; null = the DNV "
+        "table by each operation's reference period T_R and Hs limit",
+    )
+    contingency_fraction: float = Field(
+        0.5, ge=0.0, le=2.0, description="Contingency T_C as a share of T_POP: T_R = T_POP + T_C"
     )
     runs: int = Field(200, ge=20, le=500)
     seed: int = Field(1, ge=0, le=2**31 - 1)
@@ -115,7 +122,9 @@ class VesselSchema(BaseModel):
 class CampaignResponse(BaseModel):
     mode: Literal["install", "remove"]
     start_date: str
-    alpha: float
+    alpha: float | None
+    alpha_by_activity: dict[str, float] = Field(default_factory=dict)
+    contingency_fraction: float = 0.5
     runs: int
     seed: int
     n_turbines: int
@@ -128,3 +137,31 @@ class CampaignResponse(BaseModel):
     vessels: list[VesselSchema]
     months: list[str]
     assumptions: list[str]
+
+
+class OMYearRow(BaseModel):
+    year: int
+    time_based: float
+    energy_based: float
+    failures: int
+    jackup_days: float
+    jackup_mobilisations: int
+
+
+class OMSimulationResponse(BaseModel):
+    """Fleet O&M replay over the 30 hindcast years (services/lifecycle/om_simulation.py)."""
+
+    mode: str
+    n_ctv: int
+    crews_per_ctv: int
+    time_based_mean: float
+    energy_based_mean: float
+    energy_based_p90: float = Field(
+        description="Energy-based availability exceeded in 90 % of years"
+    )
+    analytic_time_based: float = Field(description="availability_model: unlimited crews")
+    mean_downtime_h: dict[str, float]
+    cost_eur_per_year: dict[str, float]
+    cost_eur_per_mw_year: float
+    years: list[OMYearRow]
+    source: str

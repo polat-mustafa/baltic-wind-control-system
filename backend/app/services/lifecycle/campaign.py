@@ -3,8 +3,8 @@ Offshore construction and decommissioning campaigns in weather windows.
 
 Method (teaching version of a marine-operations campaign simulation):
 
-1. Weather: ``weather.simulate`` gives ``runs`` synthetic 6-hourly Hs / wind
-   series from the campaign start date.
+1. Weather: ``weather.simulate`` gives ``runs`` 6-hourly Hs / wind series from the
+   campaign start date, each a replay of one year of the real 30-year hindcast.
 2. Weather-restricted operations (DNV-ST-N001, Marine operations and marine
    warranty): every unit of work (one foundation, one turbine, one cable
    section …) is an operation of planned duration T_POP that needs a weather
@@ -176,6 +176,30 @@ class Activity:
     """Mobilise just in time behind the gating activity instead of waiting on site."""
 
 
+# DNV weather-restricted operations: an operation of planned duration T_POP needs a window of
+# T_R = T_POP + T_C, T_C covering the uncertainty of the plan and contingencies. APPROXIMATION
+# for planning: T_C = 50 % of T_POP (DNV-ST-N001 asks for a justified value).
+CONTINGENCY_FRACTION = 0.5
+# α factors (OP_WF = α · OP_LIM) by reference period T_R [h] and the operation's Hs limit
+# [m]: ≤ 2, 2–4, > 4 — DNV Rules for Marine Operations Pt. 1 Ch. 2 (1996), the base case
+# without on-site meteorologist; DNV-ST-N001 carries this table forward with forecast levels.
+# Not defined beyond 72 h (such an operation must be designed for the season's extremes);
+# the 72 h row is used and the result says so.
+ALPHA_TABLE: tuple[tuple[float, tuple[float, float, float]], ...] = (
+    (12.0, (0.68, 0.76, 0.80)),
+    (24.0, (0.63, 0.71, 0.75)),
+    (48.0, (0.56, 0.64, 0.67)),
+    (72.0, (0.51, 0.59, 0.63)),
+)
+
+
+def dnv_alpha(t_r_hours: float, hs_limit_m: float) -> float:
+    """α for an operation of reference period T_R and Hs limit (``ALPHA_TABLE``)."""
+    col = 0 if hs_limit_m <= 2.0 else 1 if hs_limit_m <= 4.0 else 2
+    row = next((r for t, r in ALPHA_TABLE if t_r_hours <= t), ALPHA_TABLE[-1][1])
+    return row[col]
+
+
 @dataclass
 class CampaignInput:
     mode: Mode
@@ -185,7 +209,7 @@ class CampaignInput:
     export_km: float
     foundation: Literal["monopile", "jacket"]
     start: date
-    alpha: float
+    alpha: float | None  # None: DNV table by reference period and Hs limit (``dnv_alpha``)
     runs: int
     seed: int
     remove_foundations: Literal["cut", "full"] = "cut"
@@ -195,6 +219,8 @@ class CampaignInput:
     limits: dict[str, tuple[float, float]] = field(default_factory=dict)
     port_km: float = SB510_INSTALL_PORT_KM
     """Installation port to the site by sea [km]."""
+    contingency: float = CONTINGENCY_FRACTION
+    """T_C as a share of T_POP: the window must last T_R = T_POP + T_C."""
 
 
 def round_trip(c: CampaignInput, vessel: str, units: int, load: str) -> float:
@@ -398,19 +424,26 @@ def run_campaign(c: CampaignInput) -> dict[str, Any]:
     months = weather.step_months(c.start, horizon)
     vessels_used = list(dict.fromkeys(a.vessel for a in plan))
 
-    ok: dict[str, NDArray[np.bool_]] = {}
-    for vid in vessels_used:
-        v = VESSELS[vid]
-        hs_lim, w_lim = _limits(c, v)
-        wind = weather.hub_wind(v10) if v.wind_at_hub else v10
-        ok[vid] = (hs <= c.alpha * hs_lim) & (wind <= c.alpha * w_lim)
-    rl = {vid: weather.run_lengths(ok[vid]) for vid in vessels_used}
-    # sorted window starts per (vessel, steps needed) and run
+    # workable steps per (vessel, α): forecast limit OP_WF = α · OP_LIM on Hs and wind
+    rl: dict[tuple[str, float], NDArray[np.int32]] = {}
+    alphas: dict[str, float] = {}
+    # sorted window starts per (vessel, steps needed) and run; a window must last
+    # T_R = T_POP + T_C (DNV), the work itself takes T_POP
     starts: dict[tuple[str, int], list[NDArray[np.intp]]] = {}
     for a in plan:
-        key = (a.vessel, _steps(a.op_hours))
+        v = VESSELS[a.vessel]
+        hs_lim, w_lim = _limits(c, v)
+        t_r = a.op_hours * (1.0 + c.contingency)
+        alpha = c.alpha if c.alpha is not None else dnv_alpha(t_r, hs_lim)
+        alphas[a.id] = alpha
+        if (a.vessel, alpha) not in rl:
+            wind = weather.hub_wind(v10) if v.wind_at_hub else v10
+            ok = (hs <= alpha * hs_lim) & (wind <= alpha * w_lim)
+            rl[(a.vessel, alpha)] = weather.run_lengths(ok)
+        key = (a.vessel, _steps(t_r))
         if key not in starts:
-            starts[key] = [np.flatnonzero(rl[a.vessel][r] >= key[1]) for r in range(c.runs)]
+            run = rl[(a.vessel, alpha)]
+            starts[key] = [np.flatnonzero(run[r] >= key[1]) for r in range(c.runs)]
 
     act_ids = [a.id for a in plan]
     a_start = np.zeros((c.runs, len(plan)))
@@ -424,7 +457,8 @@ def run_campaign(c: CampaignInput) -> dict[str, Any]:
         done: dict[str, int] = {}
         failed = False
         for i, a in enumerate(plan):
-            need = _steps(a.op_hours)
+            need = _steps(a.op_hours * (1.0 + c.contingency))  # window T_R
+            op = _steps(a.op_hours)  # the work itself, T_POP
             trip = _steps(a.trip_hours) if a.trip_hours else 0
             win = starts[(a.vessel, need)][r]
             t = max([free[a.vessel]] + [done[d] for d in a.after])
@@ -440,7 +474,7 @@ def run_campaign(c: CampaignInput) -> dict[str, Any]:
                 for k in range(a.units):
                     lead += JIT_BUFFER * (trip if a.trip_every and k % a.trip_every == 0 else 0)
                     latest = max(latest, int(a.gate(k, ends) - lead))
-                    lead += JIT_BUFFER * need
+                    lead += JIT_BUFFER * op
                 t = latest
             for k in range(a.units):
                 g = a.gate(k, ends) if a.gate is not None else 0
@@ -457,7 +491,7 @@ def run_campaign(c: CampaignInput) -> dict[str, Any]:
                 else:
                     s = int(win[j])
                 wow += s - t
-                t = s + need
+                t = s + op
                 ue[k] = t
             ends[a.id] = ue
             done[a.id] = t
@@ -492,13 +526,17 @@ def run_campaign(c: CampaignInput) -> dict[str, Any]:
         vcost = (v.day_rate_keur * charter + v.mobilisation_keur * mobs) / 1000.0  # M€
         cost += vcost
         hs_lim, w_lim = _limits(c, v)
-        need = max(_steps(plan[i].op_hours) for i in idx)
+        longest = max(idx, key=lambda i: plan[i].op_hours)
+        need = _steps(plan[longest].op_hours * (1.0 + c.contingency))
+        run_v = rl[(vid, alphas[plan[longest].id])]
         work_m, win_m = [], []
         for m in range(12):
             sel = months == m
-            work_m.append(round(100.0 * float(ok[vid][:, sel].mean()), 1) if sel.any() else None)
+            work_m.append(
+                round(100.0 * float((run_v[:, sel] > 0).mean()), 1) if sel.any() else None
+            )
             win_m.append(
-                round(100.0 * float((rl[vid][:, sel] >= need).mean()), 1) if sel.any() else None
+                round(100.0 * float((run_v[:, sel] >= need).mean()), 1) if sel.any() else None
             )
         vessel_rows.append(
             {
@@ -583,6 +621,8 @@ def run_campaign(c: CampaignInput) -> dict[str, Any]:
         "mode": c.mode,
         "start_date": c.start.isoformat(),
         "alpha": c.alpha,
+        "alpha_by_activity": alphas,
+        "contingency_fraction": c.contingency,
         "runs": c.runs,
         "seed": c.seed,
         "n_turbines": c.n_turbines,

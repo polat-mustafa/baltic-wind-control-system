@@ -35,7 +35,7 @@ DATA = Path(__file__).parent / "data" / "cmems_metocean.json"
 #: Export cable section → the route point whose seabed temperature it sees.
 SECTIONS = (("Subsea burial", "Mid-route (≈ 30 m)"), ("HDD landfall", "Near landfall (≈ 10 m)"))
 #: Current per circuit at 510 MW (P2 load flow; the DTS default).
-FULL_LOAD_A = 818.0
+FULL_LOAD_A = 778.0
 
 
 @cache

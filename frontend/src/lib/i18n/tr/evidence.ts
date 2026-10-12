@@ -172,4 +172,69 @@ export default {
   "Control room live plant": "Kontrol odası canlı santrali",
   "live Open-Meteo wind on the IEA 15 MW curve, faults at published offshore failure rates (Carroll et al. 2016), curtailment on the live RCE price; time compressed, not compared with a real plant's event log":
     "IEA 15 MW eğrisi üzerinde canlı Open-Meteo rüzgârı, yayımlanmış açık deniz arıza oranlarıyla arızalar (Carroll vd. 2016), canlı RCE fiyatına göre kısıtlama; zaman sıkıştırılmış, gerçek bir santralin olay kaydıyla karşılaştırılmadı",
+  "Turbine physics — structure": "Türbin fiziği — yapı",
+  "Lifecycle — O&M": "Yaşam döngüsü — İ&B",
+  "IEC 60287-1-1 / -2-1 cable rating engine (export route sections, DTS)":
+    "IEC 60287-1-1 / -2-1 kablo akım taşıma hesabı (iletim güzergâhı bölümleri, DTS)",
+  "CIGRE TB 880 case 0-1, 132 kV 630 mm² trefoil (open re-implementation cbl_CIGRE_TB880)":
+    "CIGRE TB 880 durum 0-1, 132 kV 630 mm² üçgen dizilim (açık yeniden uygulama cbl_CIGRE_TB880)",
+  "continuous rating": "sürekli akım kapasitesi",
+  "= 821.78 A ± 0.05 A": "= 821.78 A ± 0.05 A",
+  "pandapower IEC 60909 single-phase fault, NER-earthed 66 kV array (min case)":
+    "pandapower IEC 60909 tek faz arızası, NER ile topraklanmış 66 kV dizi (minimum durum)",
+  "hand calculation: U0/R_N and 3ωC0U0 of all strings in quadrature":
+    "el hesabı: U0/R_N ile tüm dizilerin 3ωC0U0 akımı dik bileşenler olarak toplanır",
+  "I_k1 / hand value": "I_k1 / el hesabı değeri",
+  "= 1 ± 0.03": "= 1 ± 0.03",
+  "3D frame FE of the IEA 15 MW tower on the 50 m jacket with the rigid RNA":
+    "IEA 15 MW kulesinin 50 m kafes temel üzerinde rijit RNA ile 3B çerçeve sonlu eleman modeli",
+  "DEME's OpenFAST/SubDyn model of the same turbine and jacket (free decay)":
+    "DEME'nin aynı türbin ve kafes temel için OpenFAST/SubDyn modeli (serbest sönüm)",
+  "first natural frequency": "birinci doğal frekans",
+  "= 0.221 Hz ± 3 %": "= 0.221 Hz ± %3",
+  "hourly fleet O&M simulation in its validation mode (unlimited crews, continuous weather windows)":
+    "saatlik filo İ&B simülasyonu, doğrulama modunda (sınırsız ekip, kesintisiz hava pencereleri)",
+  "analytic availability model on the same hindcast and failure rates":
+    "aynı geçmiş hava verisi ve arıza oranlarıyla analitik kullanılabilirlik modeli",
+  "time-based availability difference": "zamana dayalı kullanılabilirlik farkı",
+  "|Δ| ≤ 0.6 pp": "|Δ| ≤ 0.6 yüzde puan",
+  "rainflow cycle counting behind the tower-base DEL": "kule tabanı DEL'inin arkasındaki rainflow çevrim sayımı",
+  "ASTM E1049-85 §5.4.4 worked example": "ASTM E1049-85 §5.4.4 çözümlü örneği",
+  "cycles counted (all ranges equal the standard's table)": "sayılan çevrimler (tüm aralıklar standardın tablosuna eşit)",
+  "= 4.0 (0.5 + 1.5 + 0.5 + 1.0 + 0.5)": "= 4.0 (0.5 + 1.5 + 0.5 + 1.0 + 0.5)",
+  "cycles": "çevrim",
+  "generalized-Nyquist stability verdict of converter–network interaction":
+    "dönüştürücü–şebeke etkileşiminin genelleştirilmiş Nyquist kararlılık kararı",
+  "closed-loop poles of rational models (2nd-order Padé delay), stable and unstable cases":
+    "rasyonel modellerin kapalı çevrim kutupları (2. derece Padé gecikmesi), kararlı ve kararsız durumlar",
+  "cases where the Nyquist count equals the RHP poles": "Nyquist sayımının sağ yarı düzlem kutuplarına eşit olduğu durumlar",
+  "of 9": "/ 9",
+  "= 9": "= 9",
+  "detailed harmonic network (every array section and WTG transformer) with ideal current sources":
+    "ayrıntılı harmonik ağı (her dizi kablosu bölümü ve WTG transformatörü), ideal akım kaynaklarıyla",
+  "lumped harmonic screen (power_quality), h2–h11 at OSS 66 kV and the POC":
+    "toplu harmonik ön değerlendirmesi (power_quality), OSS 66 kV ve bağlantı noktasında h2–h11",
+  "largest relative difference of a harmonic voltage": "bir harmonik gerilimin en büyük göreli farkı",
+  "≤ 5 %": "≤ %5",
+  "EMT (Dommel trapezoidal, π-sections) of energising the open 108 km export cable":
+    "Açık uçlu 108 km iletim kablosunun enerjilendirilmesinin EMT'si (Dommel yamuk kuralı, π-bölümleri)",
+  "long-line Ferranti ratio 1/cos(βl)": "uzun hat Ferranti oranı 1/cos(βl)",
+  "steady far-end / busbar voltage ÷ analytic": "kararlı uzak uç / bara gerilimi ÷ analitik değer",
+  "= 1 ± 0.001": "= 1 ± 0.001",
+  "EMT inrush oscillation after closing onto the open export cable":
+    "Açık uçlu iletim kablosuna kapamadan sonra EMT ani akım salınımı",
+  "1/(2π√((L_source + L_cable/3)·C_cable))": "1/(2π√((L_source + L_cable/3)·C_cable))",
+  "dominant ringing frequency ÷ analytic": "baskın salınım frekansı ÷ analitik değer",
+  "= 1 ± 0.08": "= 1 ± 0.08",
+  "SB-510 load flow at 510 MW (72 buses, dispatched reactors, STATCOM, taps)":
+    "510 MW'ta SB-510 yük akışı (72 bara, devreye alınmış reaktörler, STATCOM, kademeler)",
+  "the same network solved in EPRI OpenDSS (opendssdirect.py)": "aynı ağın EPRI OpenDSS ile çözümü (opendssdirect.py)",
+  "largest bus-voltage difference": "en büyük bara gerilimi farkı",
+  "< 0.001 pu; grid P within 0.1 MW, Q within 0.5 Mvar": "< 0.001 pu; şebeke P 0.1 MW, Q 0.5 Mvar içinde",
+  "SB-510 farm wake loss (34 × IEA 15 MW, TI 6 %, site Weibull): Jensen, TurbOPark and Gaussian models":
+    "SB-510 santral iz kaybı (34 × IEA 15 MW, TI %6, saha Weibull): Jensen, TurbOPark ve Gauss modelleri",
+  "NREL FLORIS 4.2.1 (jensen, turboparkgauss, gauss) on the same layout and power/thrust table":
+    "Aynı yerleşim ve güç/itki tablosuyla NREL FLORIS 4.2.1 (jensen, turboparkgauss, gauss)",
+  "largest wake-loss difference of the three pairs": "üç model çifti arasındaki en büyük iz kaybı farkı",
+  "< 1 pp (Jensen < 0.5 pp)": "< 1 yüzde puan (Jensen < 0.5 yüzde puan)",
 } satisfies Record<string, string>;

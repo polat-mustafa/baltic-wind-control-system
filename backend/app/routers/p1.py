@@ -31,7 +31,11 @@ from pydantic import BaseModel, Field
 from app.core.cache import cached
 from app.core.exceptions import DomainError
 from app.core.exceptions import ValidationError as DomainValidationError
+from app.routers.farm_spec import FarmSpecDep
+from app.services.lifecycle.availability_model import SOURCE as AVAILABILITY_SOURCE
+from app.services.lifecycle.availability_model import availability
 from app.services.p1.aep_calculator import (
+    DEFAULT_ELECTRICAL_LOSS,
     DEFAULT_PRICE_EUR_MWH,
     Z_75,
     Z_90,
@@ -82,6 +86,9 @@ from app.services.p1.yaw_optimizer import (
     optimize_yaw_all_directions,
     optimize_yaw_single_direction,
 )
+from app.services.p2.annual_losses import SOURCE as ANNUAL_LOSS_SOURCE
+from app.services.p2.annual_losses import annual_electrical_loss
+from app.services.p2.network_model import SB510, FarmSpec
 from app.services.site_assessment.wind_climate import (
     SB510_MEAN_MS,
     SB510_WEIBULL_A,
@@ -267,12 +274,18 @@ class AEPCascadeRequest(BaseModel):
     weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     price_eur_mwh: float = Field(DEFAULT_PRICE_EUR_MWH, ge=10.0, le=300.0)
+    curtailment_loss_percent: float = Field(
+        0.0, ge=0.0, le=30.0, description="Market / grid curtailment [%] (not assessed: 0)"
+    )
 
 
 class CustomAEPCascadeRequest(CustomWakeRequest):
     """AEP cascade of a user's own layout (own-project mode on the Wind Resource page)."""
 
     price_eur_mwh: float = Field(DEFAULT_PRICE_EUR_MWH, ge=10.0, le=300.0)
+    curtailment_loss_percent: float = Field(
+        0.0, ge=0.0, le=30.0, description="Market / grid curtailment [%] (not assessed: 0)"
+    )
 
 
 class UncertaintyComponentSchema(BaseModel):
@@ -294,6 +307,16 @@ class LossFactorSchema(BaseModel):
     source: str
 
 
+class ExceedanceHorizonSchema(BaseModel):
+    """P-values for an averaging period (1 year, 10 years, lifetime)."""
+
+    years: int
+    sigma_percent: float
+    p75_gwh: float
+    p90_gwh: float
+    p99_gwh: float
+
+
 class AEPCascadeResponse(BaseModel):
     """Full AEP cascade with uncertainty and exceedance values."""
 
@@ -310,6 +333,10 @@ class AEPCascadeResponse(BaseModel):
     loss_factors: list[LossFactorSchema]
     price_eur_mwh: float
     uncertainty: list[UncertaintyComponentSchema] = Field(default_factory=list)
+    exceedance_by_horizon: list[ExceedanceHorizonSchema] = Field(
+        default_factory=list,
+        description="P75 / P90 / P99 for 1 year, 10 years and the lifetime (p90_gwh = lifetime)",
+    )
 
 
 class UncertaintyRequest(BaseModel):
@@ -892,20 +919,34 @@ def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
         weibull_k=request.weibull_k,
     )
 
-    # AEP cascade
+    # AEP cascade, electrical loss and availability computed for SB-510
+    wake_frac = wake_result.wake_loss_percent / 100.0
+    elec, avail, provenance = computed_plant_losses(
+        SB510 if layout.num_turbines == SB510.num_turbines else None,
+        request.weibull_a,
+        request.weibull_k,
+        wake_frac,
+        None,
+    )
     cascade = compute_aep_cascade(
         gross_aep_gwh=wake_result.gross_aep_gwh,
-        wake_loss_fraction=wake_result.wake_loss_percent / 100.0,
+        wake_loss_fraction=wake_frac,
         blockage_loss_fraction=blockage.blockage_loss_percent / 100.0,
+        electrical_loss_fraction=elec,
+        availability_loss_fraction=avail,
         price_eur_mwh=request.price_eur_mwh,
         weibull_a=request.weibull_a,
         weibull_k=request.weibull_k,
+        curtailment_loss_fraction=request.curtailment_loss_percent / 100.0,
+        provenance=provenance,
     )
     return _cascade_response(cascade)
 
 
 @router.post("/aep-cascade-custom", response_model=AEPCascadeResponse)
-async def aep_cascade_custom(request: CustomAEPCascadeRequest) -> AEPCascadeResponse:
+async def aep_cascade_custom(
+    request: CustomAEPCascadeRequest, spec: FarmSpecDep
+) -> AEPCascadeResponse:
     """AEP cascade of arbitrary positions, turbine model and site wind (own project).
 
     Same chain as /aep-cascade: PyWake wake (as /wake-analysis-custom) → blockage
@@ -924,16 +965,33 @@ async def aep_cascade_custom(request: CustomAEPCascadeRequest) -> AEPCascadeResp
         weibull_k=request.weibull_k,
         model_id=turbine.id,
     )
+    wake_frac = float(wake["wake_loss_percent"]) / 100.0
+    same_farm = (
+        spec.num_turbines == len(request.x_m)
+        and abs(spec.turbine_rated_mw * 1e3 - turbine.rated_kw) < 1.0
+    )
+    elec, avail, provenance = await asyncio.to_thread(
+        computed_plant_losses,
+        spec if same_farm else None,
+        request.weibull_a,
+        request.weibull_k,
+        wake_frac,
+        turbine.id,
+    )
     cascade = compute_aep_cascade(
         gross_aep_gwh=float(wake["gross_aep_gwh"]),
-        wake_loss_fraction=float(wake["wake_loss_percent"]) / 100.0,
+        wake_loss_fraction=wake_frac,
         blockage_loss_fraction=blockage.blockage_loss_percent / 100.0,
+        electrical_loss_fraction=elec,
+        availability_loss_fraction=avail,
         num_turbines=len(request.x_m),
         rated_power_kw=turbine.rated_kw,
         price_eur_mwh=request.price_eur_mwh,
         weibull_a=request.weibull_a,
         weibull_k=request.weibull_k,
         turbine_model=turbine.id,
+        curtailment_loss_fraction=request.curtailment_loss_percent / 100.0,
+        provenance=provenance,
     )
     return _cascade_response(cascade)
 
@@ -962,7 +1020,42 @@ def _cascade_response(cascade: AEPCascadeResult) -> AEPCascadeResponse:
         ],
         price_eur_mwh=cascade.price_eur_mwh,
         uncertainty=_components(cascade.uncertainty),
+        exceedance_by_horizon=[
+            ExceedanceHorizonSchema(
+                years=h.years,
+                sigma_percent=round(h.sigma_percent, 2),
+                p75_gwh=round(h.p75_gwh, 2),
+                p90_gwh=round(h.p90_gwh, 2),
+                p99_gwh=round(h.p99_gwh, 2),
+            )
+            for h in cascade.exceedance_by_horizon
+        ],
     )
+
+
+def computed_plant_losses(
+    spec: FarmSpec | None,
+    weibull_a: float,
+    weibull_k: float,
+    wake_loss_fraction: float,
+    turbine_model: str | None,
+) -> tuple[float, float, dict[str, tuple[str, str]]]:
+    """Electrical loss from the farm's P2 load flow and availability from failure rates
+    and the site's weather windows (engineering audit F3). Without a matching electrical
+    design (``spec`` None) the electrical loss keeps the typical value."""
+    provenance: dict[str, tuple[str, str]] = {}
+    elec = DEFAULT_ELECTRICAL_LOSS
+    if spec is not None:
+        loss = annual_electrical_loss(weibull_a, weibull_k, wake_loss_fraction, spec, turbine_model)
+        elec = loss.fraction
+        provenance["electrical"] = ("approximation", ANNUAL_LOSS_SOURCE)
+    avail = availability(turbine_model)
+    provenance["availability"] = (
+        "literature",
+        f"Computed, energy-based {100 * avail.energy_based:.1f} % "
+        f"(time-based {100 * avail.time_based:.1f} %): {AVAILABILITY_SOURCE}",
+    )
+    return elec, 1.0 - avail.energy_based, provenance
 
 
 def _components(items: list[UncertaintyComponent]) -> list[UncertaintyComponentSchema]:

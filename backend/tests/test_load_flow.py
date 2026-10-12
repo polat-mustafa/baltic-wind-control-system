@@ -108,12 +108,19 @@ class TestLosses:
         assert full.converged and partial.converged
         assert partial.total_loss_mw < full.total_loss_mw
 
-    def test_no_load_minimal_losses(self):
-        """No-load losses should be very small (transformer iron losses only)."""
+    def test_no_load_losses_are_the_shunt_and_standby_terms(self):
+        """At no load only voltage-driven losses remain: reactors (0.2 % of 4 × 180 Mvar),
+        cable dielectric loss (ωCU²·tan δ ≈ 0.31 MW per circuit), transformer iron, STATCOM
+        standby and the 1 MW OSS auxiliary load — no I²R of the array or WTG units."""
         result = run_load_flow(LoadFlowScenario.NO_LOAD)
         assert result.converged
-        # Only iron losses and cable dielectric losses at no-load
-        assert result.total_loss_mw < 2.0, f"No-load losses = {result.total_loss_mw:.2f} MW"
+        b = result.loss_breakdown_mw
+        assert b["shunt_reactors"] == pytest.approx(4 * 0.36, rel=0.05)
+        assert 0.55 < b["export_cable"] < 1.7  # 0.62 MW dielectric + charging-current I²R
+        assert b["array_cables"] < 0.01
+        assert b["auxiliary"] == pytest.approx(1.0, abs=0.01)
+        assert 3.0 < result.total_loss_mw < 7.0
+        assert result.total_loss_mw == pytest.approx(sum(b.values()), abs=0.01)
 
 
 # ── Generation Tests ──────────────────────────────────────────────
@@ -151,7 +158,7 @@ class TestResultStructure:
         """Converged result must include per-bus results."""
         result = run_load_flow(LoadFlowScenario.FULL_LOAD)
         assert result.converged
-        assert len(result.buses) == 38  # 4 system + 34 WTG
+        assert len(result.buses) == 72  # 4 system + 34 WTG (66 kV) + 34 converter terminals
 
     def test_line_results_present(self):
         """Converged result must include per-line results."""
@@ -203,7 +210,7 @@ def test_rule4_signs_and_poc_quantities():
     from app.services.p2.load_flow import run_load_flow
 
     r = run_load_flow(LoadFlowScenario.FULL_LOAD)
-    wtg = next(b for b in r.buses if b.name == "WTG_01")
+    wtg = next(b for b in r.buses if b.name == "WTG_01_LV")
     assert wtg.p_mw == pytest.approx(15.0, abs=0.01)  # generator injects +15 MW
     oss_220 = next(b for b in r.buses if b.name == "OSS_220kV")
     assert oss_220.q_mvar < 0  # the OSS reactors absorb more than the STATCOM gives

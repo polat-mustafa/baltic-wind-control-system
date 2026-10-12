@@ -49,7 +49,7 @@ This repo is indexed (`.codegraph/`, auto-syncs). For "where is / what calls / h
 2. Per-unit consistent: Sbase 100 MVA, Vbase = bus nominal (66/220/400 kV); never mix pu and absolute.
 3. Short-circuit per IEC 60909 via `pandapower.shortcircuit.calc_sc()` (HV/MV: cmax 1.10, cmin 1.00; 0.95 is LV-only) — do not re-implement.
 4. Reactive power: generating Q positive (`reactive_power_mvar`).
-5. GOOSE is L2 Ethernet (<4 ms); HTTP/WS simulations must carry `# EDUCATIONAL SIMULATION — GOOSE is L2 Ethernet in real systems`.
+5. GOOSE is L2 Ethernet (<4 ms; trips ≤ 3 ms, IEC 61850-5 TT6); HTTP/WS simulations must carry `# EDUCATIONAL SIMULATION — GOOSE is L2 Ethernet in real systems`.
 6. Time series: `TimeSeriesSplit`, never shuffle.
 7. Cable Q is capacitive: `Q = ωCV²L` (positive).
 For rules 8–10 and details, read that section of `docs/SKILL.md`.
@@ -62,6 +62,8 @@ These are large (SKILL.md ≈ 28 KB, Project_Roadmap.md ≈ 93 KB). Do NOT read 
 - `docs/Project_Roadmap.md` — §2 P1 Layout & Yield · §3 P2 HV Grid · §4 P3 SCADA/IEC 61850 · §5 P4 Forecasting & FRT ·
   §6 P5 Commissioning · §7 Integration Map · §8 Tech Stack/UI · §9 Standards Matrix
 - `docs/references.md` — method → implementation file → primary source (book, paper, standard) per module
+- `docs/engineering-audit-2026-10.md` — independent engineering audit: verified results, open findings F1–F9, plan to 10/10 (phases A–C); scripts in `backend/scripts/audit/`
+- `dev/ACIK_ISLER.md` — developer-only open items after the 2026-10 audit (owner's tasks + next technical work, Turkish; not part of the published docs); read first when continuing the audit work
 - `docs/offshoreforge-roadmap.md` — phase status (1–3 merged, 4–6 open), Phase 4–6 specs, hand-off notes; read before continuing the OffshoreForge work
 
 ## Memory files (Claude Code project memory directory)

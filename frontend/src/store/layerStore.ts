@@ -7,6 +7,7 @@
  */
 
 import { create } from "zustand";
+import { DEMO } from "../demo/demoKey";
 import { readStored, writeStored } from "../lib/storage";
 
 export interface LayerVisibility {
@@ -42,6 +43,8 @@ export type MapTheme = "hmi" | "storybook";
 
 const THEME_KEY = "of.mapTheme";
 function loadTheme(): MapTheme {
+  // The public demo always opens on the light palette; a visitor's earlier switch lasts the visit only
+  if (DEMO) return "storybook";
   return readStored(THEME_KEY) === "hmi" ? "hmi" : "storybook";
 }
 

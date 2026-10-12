@@ -55,3 +55,5 @@ re:^Tautz-Weinert
 Rotor 1P
 THD, Norton [%]
 OpenFAST
+# formulas on the Evidence page (symbols, not words)
+1/(2π√((L_source + L_cable/3)·C_cable))

@@ -71,6 +71,7 @@ async def campaign(req: CampaignRequest) -> CampaignResponse:
         foundation=req.foundation,
         start=req.start_date,
         alpha=req.alpha,
+        contingency=req.contingency_fraction,
         runs=req.runs,
         seed=req.seed,
         remove_foundations=req.remove_foundations,

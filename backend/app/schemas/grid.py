@@ -329,6 +329,8 @@ class FRTTimePoint(BaseModel):
         description="WTG reactive current [p.u. of rating], > 0 capacitive"
     )
     statcom_q_mvar: float = Field(0.0, description="STATCOM reactive power [MVAR]")
+    negative_sequence_pu: float = Field(0.0, description="Negative-sequence POC voltage [p.u.]")
+    phase_min_pu: float = Field(0.0, description="Lowest phase voltage at the POC [p.u.]")
 
 
 class FRTEnvelopePoint(BaseModel):
@@ -380,6 +382,16 @@ class FRTSimulationResponse(BaseModel):
     time_series: list[FRTTimePoint] = Field(
         default_factory=list,
         description="Time-domain simulation data",
+    )
+    fault_kind: str = Field("3ph", description="3ph, 2ph (phase-phase), 1ph (earth) or swell")
+    min_phase_voltage_pu: float = Field(0.0, description="Lowest POC phase voltage in the event")
+    max_negative_sequence_pu: float = Field(
+        0.0, description="Largest negative-sequence POC voltage in the event [p.u.]"
+    )
+    post_clearance_peak_pu: float = Field(
+        0.0,
+        description="Highest POC / terminal voltage in the 0.5 s after clearance [p.u.] — the "
+        "overshoot when cable charging returns while converter Iq still decays",
     )
 
 

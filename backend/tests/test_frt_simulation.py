@@ -125,3 +125,52 @@ def _points(values: list[tuple[float, float, float, float]]) -> list[FRTTimePoin
         )
         for t, v, p, iq in values
     ]
+
+
+class TestShuntsAndUnbalancedFaults:
+    """Engineering audit B-3: cable charging and reactors in the network, symmetrical
+    components for phase-phase and phase-earth faults."""
+
+    def test_phase_phase_fault_equalises_v1_and_v2_at_the_fault(self):
+        """Bolted b–c fault: positive and negative networks in parallel → V1 = V2 at the
+        faulted bus (here the POC), both ≈ half the pre-fault voltage."""
+        r = run_frt_simulation(FRTType.LVRT, fault_impedance_pu=0.0, fault_kind="2ph")
+        during = [p for p in r.time_series if 0.2 <= p.time_s < 0.35]
+        assert all(abs(p.voltage_pu - p.negative_sequence_pu) < 2e-3 for p in during)
+        assert all(0.35 < p.voltage_pu < 0.65 for p in during)
+        assert r.stayed_connected
+
+    def test_earth_fault_at_the_poc_takes_one_phase_to_zero(self):
+        """a–earth fault at 400 kV: the faulted phase collapses, the positive-sequence voltage
+        (what the PSE profile is applied to) keeps ≈ 2/3."""
+        r = run_frt_simulation(FRTType.LVRT, fault_impedance_pu=0.0, fault_kind="1ph")
+        assert r.min_phase_voltage_pu < 0.05
+        assert 0.55 < r.retained_voltage_pu < 0.8
+        assert r.max_negative_sequence_pu > 0.2
+
+    def test_array_earth_fault_hardly_reaches_the_poc(self):
+        """66 kV is resistance earthed behind the OSS units' delta: an earth fault there
+        leaves the 400 kV voltages almost untouched."""
+        r = run_frt_simulation(
+            FRTType.LVRT, fault_bus="OSS_66kV", fault_impedance_pu=0.0, fault_kind="1ph"
+        )
+        assert r.retained_voltage_pu > 0.97 and r.min_phase_voltage_pu > 0.97
+        assert r.max_negative_sequence_pu < 0.02
+
+    def test_post_clearance_overvoltage_is_reported(self):
+        """At clearance the cable charging returns while the converters' capacitive Iq still
+        decays (τ 26 ms): the voltage overshoots — the reason grid codes limit how slowly
+        reactive current may be withdrawn."""
+        r = run_frt_simulation(FRTType.LVRT, fault_impedance_pu=0.0)
+        assert r.post_clearance_peak_pu > 1.05
+
+    def test_negative_sequence_injection_lowers_v2(self):
+        base = run_frt_simulation(FRTType.LVRT, fault_impedance_pu=0.02, fault_kind="2ph")
+        k2 = run_frt_simulation(
+            FRTType.LVRT, fault_impedance_pu=0.02, fault_kind="2ph", k2_factor=2.0
+        )
+        assert k2.max_negative_sequence_pu < base.max_negative_sequence_pu
+
+    def test_bad_fault_kind_rejected(self):
+        with pytest.raises(ValidationError):
+            run_frt_simulation(FRTType.LVRT, fault_kind="3ph-g")

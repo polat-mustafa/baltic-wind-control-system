@@ -21,12 +21,32 @@ and reaches its target with a first-order lag τ = 26 ms (90 % in 60 ms).
 After clearance the WTG active current ramps back at a set rate once the
 terminal voltage is ≥ 0.9 pu.
 
-This is an RMS screening model, not an EMT or full RMS dynamic study: no
-PLL, no DC-link, no array cable impedance (the WTGs are aggregated at the
-66 kV busbar), no cable capacitance, balanced faults only. It shows the
-quantities a grid-code check is built on — retained voltage at the
-connection point, the reactive current the farm injects, the voltage support
-that current gives, and the active power recovery — with real network data.
+Shunt elements (engineering audit B-3): the export cable as the exact long-line π (its
+624 Mvar of charging at 1 p.u., falling with U² in a dip and returning at clearance), the
+shunt reactors in service at the pre-fault operating point (P2 dispatch), the array cable
+charging and the harmonic filter at OSS 66 kV.
+
+Unbalanced faults (``fault_kind``): symmetrical components. The positive, negative and zero
+sequence networks of the chain are reduced to their bus impedance matrices; the converters
+are positive-sequence current sources, in the negative sequence either open (K2 = 0, the
+classic grid-following converter suppresses I2) or an inductive admittance K2·S_n (negative-
+sequence current injection, VDE-AR-N 4120 / IEC 61400-21-1 style). At the faulted bus f:
+
+    3ph   I1 = V1⁰/(Z1ff + Zf)
+    2ph   I1 = −I2 = (V1⁰ − V2⁰)/(Z1ff + Z2ff + Zf)
+    1ph   I1 = I2 = I0 = (V1⁰ + V2⁰ + V0⁰)/(Z1ff + Z2ff + Z0ff + 3Zf)
+
+and every bus voltage follows from V = V⁰ − Z[:, f]·I_f in each sequence. Zero sequence:
+grid X0/X1 = 1, onshore YNyn units pass it, the OSS units are delta on 220 kV (no path), the
+66 kV star points are earthed through the NERs (``network_model.NER_OHM``), cables C0 = C1.
+The PSE profile is applied to the positive-sequence POC voltage; the lowest phase voltage
+and the negative-sequence voltage are reported.
+
+This is an RMS screening model, not an EMT or full RMS dynamic study: no PLL, no DC-link,
+no array cable impedance (the WTGs are aggregated at the 66 kV busbar). It shows the
+quantities a grid-code check is built on — retained voltage at the connection point, the
+reactive current the farm injects, the voltage support that current gives, the active
+power recovery and the voltage after clearance — with real network data.
 
 PSE requirements used (PSE, "Wymogi ogólnego stosowania wynikające z NC RfG",
 18-12-2018 — power park module, type D)
@@ -133,54 +153,171 @@ def iq_target(du_pu: float, k_factor: float) -> float:
     return float(np.clip(k_factor * du_pu, -I_MAX_PU, I_MAX_PU))
 
 
-def _admittance(z_series: dict[str, complex]) -> np.ndarray:
-    """Nodal admittance matrix of the radial chain incl. the grid source impedance."""
-    y = np.zeros((4, 4), dtype=complex)
-    y[0, 0] += 1.0 / z_series["grid"]
-    for a, z in ((0, z_series["onshore"]), (1, z_series["export"]), (2, z_series["oss"])):
-        b = a + 1
-        y[a, a] += 1.0 / z
-        y[b, b] += 1.0 / z
-        y[a, b] -= 1.0 / z
-        y[b, a] -= 1.0 / z
-    return y
+@dataclass(frozen=True)
+class _Networks:
+    """Bus impedance matrices of the three sequence networks (4 nodes, p.u. on 100 MVA)
+    and the grid source admittance in the positive sequence."""
+
+    z1: np.ndarray
+    z2: np.ndarray
+    z0: np.ndarray
+    y_grid: complex
+    statcom_iq_pre: float  # STATCOM reactive current at the operating point [pu of rating]
+
+
+def _branch(y: np.ndarray, a: int, b: int, z: complex) -> None:
+    y[a, a] += 1.0 / z
+    y[b, b] += 1.0 / z
+    y[a, b] -= 1.0 / z
+    y[b, a] -= 1.0 / z
+
+
+def _networks(
+    spec: FarmSpec,
+    grid_ssc_mva: float,
+    export_length_km: float | None,
+    generation_fraction: float,
+    k2_factor: float,
+) -> _Networks:
+    """Sequence networks with shunts at the pre-fault operating point (module docstring)."""
+    import math
+
+    import pandapower as pp
+
+    from app.services.p2.load_flow import dispatch_with_reactor_switching
+    from app.services.p2.network_model import (
+        EXPORT_CABLE_1000,
+        GRID_R0X0,
+        GRID_X0X,
+        NER_OHM,
+        NUM_OSS_TRANSFORMERS,
+        R_RETURN_EXPORT_OHM_PER_KM,
+        array_charging_mvar,
+        build_network,
+        exact_pi_per_km,
+    )
+
+    length = spec.export_length_km if export_length_km is None else export_length_km
+    z = series_impedances_pu(S_BASE_MVA, grid_ssc_mva, length, spec)
+    # operating point: which reactors are in, what the STATCOM gives (P2 dispatch)
+    net = build_network(
+        export_length_km=length, grid_ssc_mva=grid_ssc_mva,
+        generation_fraction=generation_fraction, spec=spec,
+    )  # fmt: skip
+    q_stc, _on = dispatch_with_reactor_switching(net, spec.statcom_mvar)
+    pp.runpp(net, algorithm="nr", tolerance_mva=1e-8)
+    on = net.shunt[net.shunt.name.str.startswith("Reactor_") & net.shunt.in_service]
+    q_ons = float(on[on.name.str.startswith("Reactor_ONS")].q_mvar.sum())
+    q_oss = float(on[on.name.str.startswith("Reactor_OSS")].q_mvar.sum())
+
+    cab = EXPORT_CABLE_1000
+    zb220 = 220.0**2 / S_BASE_MVA
+    n = spec.num_export_cables
+    r_km, x_km, c_km, g_km = exact_pi_per_km(cab, length, cab.r_ac_ohm_per_km)
+    z_exp = complex(r_km, x_km) * length / n / zb220
+    y_half = complex(g_km * 1e-6, 2 * math.pi * 50 * c_km * 1e-9) * length / 2 * n * zb220
+
+    def base(seq: int) -> np.ndarray:
+        y = np.zeros((4, 4), dtype=complex)
+        _branch(y, 0, 1, z["onshore"])
+        if seq == 0:  # zero sequence: screens/armour return
+            z0_exp = complex(cab.r_ac_ohm_per_km + 3 * R_RETURN_EXPORT_OHM_PER_KM, cab.x_ohm_per_km)
+            _branch(y, 1, 2, z0_exp * length / n / zb220)
+        else:
+            _branch(y, 1, 2, z_exp)
+            _branch(y, 2, 3, z["oss"])
+        y[1, 1] += y_half
+        y[2, 2] += y_half
+        # reactors (star-earthed: same admittance in every sequence), absorbing: −jQ/S
+        y[1, 1] += -1j * q_ons / S_BASE_MVA
+        y[2, 2] += -1j * q_oss / S_BASE_MVA
+        # array cable charging and the harmonic filter at 66 kV (capacitive, C0 = C1)
+        y[3, 3] += 1j * (array_charging_mvar(spec) + spec.harmonic_filter_mvar) / S_BASE_MVA
+        return y
+
+    zg = z["grid"]
+    y1 = base(1)
+    y1[0, 0] += 1.0 / zg
+    y2 = base(2)
+    y2[0, 0] += 1.0 / zg
+    if k2_factor > 0:  # converters absorb negative-sequence current K2·ΔU2 (inductive)
+        y2[3, 3] += -1j * k2_factor * spec.capacity_mw / S_BASE_MVA
+        y2[2, 2] += -1j * k2_factor * spec.statcom_mvar / S_BASE_MVA
+    y0 = base(0)
+    x0 = GRID_X0X * zg.imag
+    y0[0, 0] += 1.0 / complex(GRID_R0X0 * x0, x0)
+    # OSS 66 kV star points: Z_T0 + 3·R_N to earth (the delta HV side blocks the 220 kV link)
+    r_n = NER_OHM / NUM_OSS_TRANSFORMERS / (66.0**2 / S_BASE_MVA)
+    y0[3, 3] += 1.0 / (z["oss"] + 3 * r_n)
+    return _Networks(
+        np.linalg.inv(y1),
+        np.linalg.inv(y2),
+        np.linalg.inv(y0),
+        1.0 / zg,
+        q_stc / spec.statcom_mvar if spec.statcom_mvar else 0.0,
+    )
 
 
 def _solve(
-    y: np.ndarray,
+    nets: _Networks,
     e_grid: complex,
-    z_grid: complex,
     converters: list[_Converter],
     v_guess: np.ndarray,
-) -> np.ndarray:
-    """Node voltages for given converter currents (fixed point on the angle)."""
-    v = v_guess.copy()
-    for _ in range(30):
+    fault: tuple[int, str, complex] | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Sequence voltages (V1, V2, V0) at the 4 buses for given converter currents, with an
+    optional fault (node, kind, Z_f); fixed point on the converters' voltage angle."""
+    v1 = v_guess.copy()
+    zero = np.zeros(4, dtype=complex)
+    v2, v0 = zero, zero
+    for _ in range(40):
         i = np.zeros(4, dtype=complex)
-        i[0] = e_grid / z_grid
+        i[0] = e_grid * nets.y_grid
         for c in converters:
-            i[c.node] += c.injection(v[c.node])
-        v_new = np.linalg.solve(y, i)
-        if np.max(np.abs(v_new - v)) < 1e-9:
-            return v_new
-        v = v_new
-    return v
+            i[c.node] += c.injection(v1[c.node])
+        v1_oc = nets.z1 @ i
+        if fault is None:
+            v1_new, v2, v0 = v1_oc, zero, zero
+        else:
+            f, kind, zf = fault
+            if kind == "3ph":
+                i1 = v1_oc[f] / (nets.z1[f, f] + zf)
+                i2 = i0 = 0j
+            elif kind == "2ph":
+                i1 = v1_oc[f] / (nets.z1[f, f] + nets.z2[f, f] + zf)
+                i2, i0 = -i1, 0j
+            else:  # 1ph
+                i1 = v1_oc[f] / (nets.z1[f, f] + nets.z2[f, f] + nets.z0[f, f] + 3 * zf)
+                i2 = i0 = i1
+            v1_new = v1_oc - nets.z1[:, f] * i1
+            v2 = -nets.z2[:, f] * i2
+            v0 = -nets.z0[:, f] * i0
+        if np.max(np.abs(v1_new - v1)) < 1e-9:
+            return v1_new, v2, v0
+        v1 = v1_new
+    return v1, v2, v0
+
+
+A = np.exp(2j * np.pi / 3)
+
+
+def _phase_min(v1: complex, v2: complex, v0: complex) -> float:
+    """Lowest of the three phase voltages [p.u.] from the sequence components."""
+    return float(
+        min(abs(v0 + v1 + v2), abs(v0 + A * A * v1 + A * v2), abs(v0 + A * v1 + A * A * v2))
+    )
 
 
 def _pre_fault_voltage_control(
-    y: np.ndarray, z_grid: complex, converters: list[_Converter], wtg: _Converter
+    nets: _Networks, converters: list[_Converter], wtg: _Converter
 ) -> np.ndarray:
-    """Set the WTG reactive current so the 66 kV busbar sits at 1.0 pu (bisection).
-
-    Stands in for the plant controller: in the real network the cable charging,
-    shunt reactors and STATCOM settle the voltage; here the WTGs do it within
-    ±WTG_Q_LIMIT_PU.
-    """
+    """Set the WTG reactive current so the 66 kV busbar sits at 1.0 pu (bisection), with
+    the STATCOM at its dispatched output — the plant controller's steady state."""
     lo, hi = -WTG_Q_LIMIT_PU, WTG_Q_LIMIT_PU
     v = np.ones(4, dtype=complex)
     for _ in range(40):
         wtg.iq = 0.5 * (lo + hi)
-        v = _solve(y, 1.0 + 0j, z_grid, converters, v)
+        v, _v2, _v0 = _solve(nets, 1.0 + 0j, converters, v)
         if abs(v[wtg.node]) < 1.0:
             lo = wtg.iq
         else:
@@ -200,8 +337,10 @@ def run_frt_simulation(
     swell_pu: float = 1.20,
     p_ramp_pu_s: float = DEFAULT_P_RAMP_PU_S,
     spec: FarmSpec = SB510,
+    fault_kind: str = "3ph",
+    k2_factor: float = 0.0,
 ) -> FRTSimulationResponse:
-    """Simulate a balanced fault (LVRT) or a grid voltage swell (HVRT).
+    """Simulate a fault (LVRT: 3ph, 2ph or 1ph) or a grid voltage swell (HVRT).
 
     Parameters
     ----------
@@ -219,6 +358,10 @@ def run_frt_simulation(
         Export cable length [km]; None = the spec's.
     spec : FarmSpec
         Farm design (capacity, STATCOM, impedances). Default: SB-510.
+    fault_kind : str
+        "3ph" (balanced), "2ph" (phase–phase) or "1ph" (phase–earth). LVRT only.
+    k2_factor : float
+        Negative-sequence current gain of the converters (0 = I2 suppressed).
     """
     grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     if fault_bus not in BUSES:
@@ -228,16 +371,18 @@ def run_frt_simulation(
         msg = f"k_factor must be within {K_FACTOR_RANGE[0]}–{K_FACTOR_RANGE[1]}"
         raise DomainValidationError(msg)
 
-    z = series_impedances_pu(S_BASE_MVA, grid_ssc_mva, export_length_km, spec)
-    y_normal = _admittance(z)
-    y_fault = y_normal.copy()
+    if fault_kind not in ("3ph", "2ph", "1ph"):
+        raise DomainValidationError("fault_kind must be '3ph', '2ph' or '1ph'")
+    if not 0.0 <= k2_factor <= 6.0:
+        raise DomainValidationError("k2_factor must be within 0–6")
+    nets = _networks(spec, grid_ssc_mva, export_length_km, generation_fraction, k2_factor)
     fault_node = BUSES.index(fault_bus)
-    if frt_type == FRTType.LVRT:
-        y_fault[fault_node, fault_node] += 1.0 / complex(0.1, 1.0) / max(fault_impedance_pu, 1e-6)
+    z_f = complex(0.1, 1.0) * max(fault_impedance_pu, 1e-6)  # mostly reactive, as before
+    fault = (fault_node, fault_kind, z_f) if frt_type == FRTType.LVRT else None
 
     p_pre_pu = generation_fraction  # WTG active current ≈ P at U ≈ 1 pu
     wtg = _Converter(spec.capacity_mw, WTG_NODE, ip=p_pre_pu)
-    statcom = _Converter(spec.statcom_mvar, STATCOM_NODE, ip=0.0)
+    statcom = _Converter(spec.statcom_mvar, STATCOM_NODE, ip=0.0, iq=nets.statcom_iq_pre)
     converters = [wtg, statcom]
 
     t_fault = PRE_FAULT_S
@@ -246,7 +391,7 @@ def run_frt_simulation(
     decay = np.exp(-DT_S / IQ_RISE_TAU_S)
 
     # Pre-fault: WTGs in voltage control hold their terminals at 1.0 pu
-    v = _pre_fault_voltage_control(y_normal, z["grid"], converters, wtg)
+    v = _pre_fault_voltage_control(nets, converters, wtg)
     v_pre = v.copy()
     u_ref = {c.node: abs(v_pre[c.node]) for c in converters}
     iq_pre = {c.node: c.iq for c in converters}
@@ -255,11 +400,12 @@ def run_frt_simulation(
     recovering = False
     for t in times:
         faulted = t_fault <= t < t_clear
-        y = y_fault if faulted else y_normal
+        f_now = fault if faulted else None
         e_grid = complex(swell_pu if (faulted and frt_type == FRTType.HVRT) else 1.0)
 
-        # Voltage the converters measure now (their currents are still the old ones)
-        v = _solve(y, e_grid, z["grid"], converters, v)
+        # Voltage the converters measure now (their currents are still the old ones);
+        # they control on the positive-sequence voltage
+        v, v2, v0 = _solve(nets, e_grid, converters, v, f_now)
 
         for c in converters:
             # PSE: the K·ΔU current is *additional* to the pre-fault reactive current
@@ -276,13 +422,15 @@ def run_frt_simulation(
             recovering = recovering or u_wtg >= RECOVERY_START_PU
             if recovering:
                 wtg.ip = min(wtg.ip + p_ramp_pu_s * DT_S, p_pre_pu, headroom)
-        v = _solve(y, e_grid, z["grid"], converters, v)
+        v, v2, v0 = _solve(nets, e_grid, converters, v, f_now)
 
         u_wtg = abs(v[WTG_NODE])
         series.append(
             FRTTimePoint(
                 time_s=round(float(t), 4),
                 voltage_pu=round(float(abs(v[POC_NODE])), 4),
+                negative_sequence_pu=round(float(abs(v2[POC_NODE])), 4),
+                phase_min_pu=round(_phase_min(v[POC_NODE], v2[POC_NODE], v0[POC_NODE]), 4),
                 terminal_voltage_pu=round(float(u_wtg), 4),
                 active_power_mw=round(float(u_wtg * wtg.ip * wtg.s_mva), 2),
                 reactive_power_mvar=round(float(u_wtg * wtg.iq * wtg.s_mva), 2),
@@ -330,7 +478,8 @@ def run_frt_simulation(
     # Same active current, no reactive current → what the injection is worth
     no_iq = [_Converter(c.s_mva, c.node, ip=c.ip) for c in converters]
     no_iq[0].ip = end.active_power_mw / max(end.terminal_voltage_pu, 1e-3) / wtg.s_mva
-    passive = _solve(y_fault, complex(1.0 if lvrt else swell_pu), z["grid"], no_iq, v_pre)
+    passive, _p2, _p0 = _solve(nets, complex(1.0 if lvrt else swell_pu), no_iq, v_pre, fault)
+    post = [p for p in after if p.time_s <= t_clear + 0.5]
 
     return FRTSimulationResponse(
         frt_type=frt_type,
@@ -349,4 +498,10 @@ def run_frt_simulation(
         recovery_limit_s=RECOVERY_LIMIT_S,
         envelope=envelope if lvrt else [],
         time_series=series,
+        fault_kind=fault_kind if lvrt else "swell",
+        min_phase_voltage_pu=min(p.phase_min_pu for p in during),
+        max_negative_sequence_pu=max(p.negative_sequence_pu for p in during),
+        post_clearance_peak_pu=max(
+            (max(p.voltage_pu, p.terminal_voltage_pu) for p in post), default=0.0
+        ),
     )

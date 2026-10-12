@@ -163,6 +163,12 @@ class FRTRequest(BaseModel):
     p_ramp_pu_s: float = Field(
         1.0, ge=0.1, le=10.0, description="Post-fault active power ramp [p.u./s]"
     )
+    fault_kind: str = Field(
+        "3ph", pattern="^(3ph|2ph|1ph)$", description="Balanced, phase-phase or phase-earth"
+    )
+    k2_factor: float = Field(
+        0.0, ge=0.0, le=6.0, description="Converter negative-sequence current gain (0 = none)"
+    )
 
 
 # ── Endpoints ────────────────────────────────────────────────────
@@ -308,6 +314,8 @@ def frt_simulation(
             swell_pu=request.swell_pu,
             p_ramp_pu_s=request.p_ramp_pu_s,
             spec=spec,
+            fault_kind=request.fault_kind,
+            k2_factor=request.k2_factor,
         )
     except DomainError:
         raise

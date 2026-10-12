@@ -13,7 +13,7 @@
  */
 
 import StartHereStrip from "../components/landing/StartHereStrip";
-import { Fragment, lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
+import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Maximize2,
@@ -267,8 +267,18 @@ export default function LandingPage() {
     }
   }, []);
 
+  // Phones: the turbine layer covers the whole screen, so the system Back gesture is how people
+  // close it. It gets its own history entry; without one Back left the demo (a blank page in the
+  // showcase iframe). Same URL and router state, so React Router sees no navigation.
+  const layoutRef = useRef(turbineLayout);
+  layoutRef.current = turbineLayout;
+  const layerInHistory = () => (window.history.state as { turbineLayer?: boolean } | null)?.turbineLayer === true;
+
   // Map click handlers — stable callbacks for the memo'd map
   const handleTurbineClick = useCallback((turbineId: string) => {
+    if (layoutRef.current === "stacked" && !layerInHistory()) {
+      window.history.pushState({ ...window.history.state, turbineLayer: true }, "");
+    }
     setSelectedTurbineId(turbineId);
     setActivePanel("turbine");
   }, []);
@@ -283,6 +293,13 @@ export default function LandingPage() {
     setActivePanel(null);
     setSelectedTurbineId(null);
   }, []);
+  // ✕ / Esc on the turbine layer steps back over its entry; the popstate below then closes it
+  const handleTurbineClose = useCallback(() => (layerInHistory() ? window.history.back() : handlePanelClose()), [handlePanelClose]);
+  useEffect(() => {
+    const onPop = () => !layerInHistory() && handlePanelClose();
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [handlePanelClose]);
 
   // Round power to avoid re-renders on decimal changes
   const roundedPower = Math.round(kpis.totalOutputMW);
@@ -308,7 +325,7 @@ export default function LandingPage() {
       {activePanel === "turbine" && selectedTurbineId && (
         <ConnectedTurbineDetailPanel
           turbineId={selectedTurbineId}
-          onClose={handlePanelClose}
+          onClose={handleTurbineClose}
           layout={turbineLayout}
         />
       )}

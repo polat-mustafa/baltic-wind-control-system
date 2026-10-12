@@ -112,8 +112,11 @@ export const NacelleSchematic = memo(function NacelleSchematic({ turbineId, head
         <div className="flex items-center gap-2">{headerExtra}</div>
       </div>
 
-      <div className="min-h-0 flex-1 p-2">
-        <Active {...props} />
+      {/* Never drawn below a legible 900 × 540 px: a phone scrolls the sheet instead of shrinking it to a thumbnail */}
+      <div className="min-h-0 flex-1 overflow-auto overscroll-contain p-2">
+        <div className="h-full min-h-[540px] min-w-[900px]">
+          <Active {...props} />
+        </div>
       </div>
 
       {/* Selection bar */}

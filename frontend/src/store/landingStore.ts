@@ -754,9 +754,20 @@ export const useLandingStore = create<LandingState>((set, get) => {
     setLiveWeather: (w) => {
       // First reading (or back from the simulation): start the plant at the live wind
       // instead of easing towards it over a minute of ticks.
-      if (w && !_live && _weatherSource === "live" && Date.now() - w.fetchedAt < LIVE_MAX_AGE_MS) snapToLive(w);
+      const snap = !!w && !_live && _weatherSource === "live" && Date.now() - w.fetchedAt < LIVE_MAX_AGE_MS;
+      if (snap) snapToLive(w);
       _live = w;
-      set({ liveWeather: w });
+      // The turbines were already yawed into that wind before we started watching: without this
+      // a live direction far from the sim's 225° tripped the 45° yaw stop and the farm sat at 0 MW
+      // for minutes after the page opened.
+      set((state) => ({
+        liveWeather: w,
+        ...(snap && {
+          turbineMap: Object.fromEntries(
+            Object.entries(state.turbineMap).map(([id, t]) => [id, { ...t, nacellePositionDeg: Math.round(w.windDir100Deg) }]),
+          ),
+        }),
+      }));
     },
     setLiveError: (e) => set({ liveError: e }),
     manualWindDirDeg: null,

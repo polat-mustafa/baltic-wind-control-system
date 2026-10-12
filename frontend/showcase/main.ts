@@ -106,9 +106,20 @@ const iframe = $<HTMLIFrameElement>(".frame iframe");
 const demoTabs = [...document.querySelectorAll<HTMLButtonElement>(".frame__tabs button")];
 
 function openDemo(route: string, caption?: string) {
-  frame.classList.add("is-live");
   const src = `./demo/${route}`;
-  if (iframe.getAttribute("src") !== src) iframe.setAttribute("src", src);
+  // Phones: the app inside a page-sized frame is a scroller in a scroller and Back stepped the
+  // frame to its blank start page — open it as the page itself instead.
+  if (matchMedia("(max-width: 639px)").matches) {
+    location.href = src;
+    return;
+  }
+  frame.classList.add("is-live");
+  // replace(), not src=: switching screens adds no history entries, so Back leaves the page
+  // instead of walking the frame back to about:blank
+  if (iframe.dataset.current !== src) {
+    iframe.dataset.current = src;
+    iframe.contentWindow?.location.replace(new URL(src, location.href).href);
+  }
   for (const t of demoTabs) t.setAttribute("aria-selected", String(t.dataset.route === route));
   $(".frame__what").textContent = demoTabs.find((t) => t.dataset.route === route)?.dataset.caption ?? caption ?? "";
   $<HTMLAnchorElement>(".frame__open").href = src;

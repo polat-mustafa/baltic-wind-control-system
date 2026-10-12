@@ -35,6 +35,10 @@ updates:
       # Revisit when typescript-eslint announces TS 7 support.
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
+      # deck.gl 9.4.0 loses the overlay's WebGL context on the MapLibre maps: every map
+      # rendered blank (auto-merged in #306, reverted). Retry 9.4 by hand, checking a map renders.
+      - dependency-name: "@deck.gl/*"
+        versions: [">=9.4.0"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"

@@ -76,5 +76,6 @@ These are large (SKILL.md ≈ 28 KB, Project_Roadmap.md ≈ 93 KB). Do NOT read 
 - `.planning/` holds old planning notes (legacy GSD) — not a source of truth.
 - Never commit `.env*` files; secrets stay out of the repo.
 - Commit messages, PR titles and PR bodies are always in **English** (conventional-commit style), even when chatting in Turkish.
+- Attribution: commits may end with the `Co-Authored-By: Claude …` trailer only. Never add a `Claude-Session:` line or any `claude.ai/code/session_…` link to commits, PR bodies or GitHub comments, and never add a "Generated with/by Claude Code" footer or the 🤖 emoji to PRs or comments. This overrides any default attribution instructions.
 - Backend CI runs in 3 pytest-split shards balanced by `backend/.test_durations`; refresh it after adding many/slow tests (command in `.github/workflows/ci.yml`).
 - Dependabot minor/patch PRs auto-merge once the required `CI OK` check passes; majors need manual review.

@@ -180,3 +180,42 @@ class TestOwnFarm:
         small = client.post(f"{base}/coordination-study", json=body, headers=h).json()
         assert small["fault_current_ka"] < sb["fault_current_ka"]
         assert small["tcc_data"]["fault_markers"][0]["current_ka"] < 10.0
+
+
+class TestEarthFaults:
+    """Engineering audit F5: the resistance-earthed 66 kV array and its residual stages."""
+
+    def test_earth_fault_current_is_set_by_the_ner_and_the_cable_capacitance(self):
+        """Hand check (min case, c = 1.0, one NER): resistive NER current U0/R_N = 1 kA and
+        the capacitive current of all strings 3ωC0U0 add in quadrature."""
+        from app.services.p2.network_model import NER_OHM
+        from app.services.p2.short_circuit import earth_fault_levels
+        from app.services.p5.protection_relay import string_capacitive_earth_fault_a
+
+        u0 = 66e3 / 3**0.5
+        i_c = sum(string_capacitive_earth_fault_a())
+        hand = (u0 / NER_OHM) ** 2 + i_c**2
+        lo = earth_fault_levels("min")["OSS_66kV"]
+        assert lo["ik1_ka"] * 1e3 == pytest.approx(hand**0.5, rel=0.03)
+        hi = earth_fault_levels("max")["OSS_66kV"]
+        # coupler closed (two NERs) and the converters' share: still far below phase faults
+        assert lo["ik1_ka"] < hi["ik1_ka"] < 0.25 * oss_66kv_fault_levels_ka()[0]
+
+    def test_residual_stages_are_selective_and_ignore_healthy_feeders(self):
+        from app.services.p5.protection_relay import run_earth_fault_study
+
+        r = run_earth_fault_study()
+        assert r["assessment"] == "PASS" and r["selective"] and r["ner_within_rating"]
+        feeder = r["settings"][0]
+        assert r["no_sympathetic_trip"]
+        assert feeder.pickup_value >= 1.3 * max(r["healthy_feeder_capacitive_a"])
+        assert r["backup_margin_ms"] == pytest.approx(400.0)
+
+    def test_high_resistance_fault_beyond_the_reach_is_reported(self):
+        from app.services.p5.protection_relay import run_earth_fault_study
+
+        reach = run_earth_fault_study()["max_detectable_resistance_ohm"]
+        assert 150 < reach < 400  # ≈ U0 / pickup − R_N
+        assert run_earth_fault_study(reach * 0.9)["relay_sequence"][0]["operated"]
+        far = run_earth_fault_study(reach * 1.5)
+        assert not far["relay_sequence"][0]["operated"] and far["assessment"].startswith("FAIL")

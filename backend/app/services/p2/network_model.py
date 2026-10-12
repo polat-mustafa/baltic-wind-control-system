@@ -296,6 +296,27 @@ STATCOM_LOAD_LOSS_PERCENT = 1.0
 OSS_AUX_MW_PER_MW = 1.0 / 510.0
 OSS_AUX_PF = 0.95
 
+# ── Zero sequence and earthing (engineering audit F5: earth faults) ──
+# 66 kV array: resistance earthed at the star point of each OSS transformer's 66 kV
+# winding (Dyn11) through a neutral earthing resistor that limits the earth-fault current
+# to 1 kA per unit — APPROXIMATION of common offshore practice (low-impedance earthing,
+# fast earth-fault clearance, low transient overvoltages).
+NER_LIMIT_A = 1000.0
+NER_OHM = ARRAY_KV * 1e3 / math.sqrt(3) / NER_LIMIT_A  # 38.1 Ω
+# Cables (APPROXIMATION): individually screened cores → C0 = C1 (exact for that build);
+# the zero-sequence current returns in the bonded screens and armour next to the cores,
+# so X0 ≈ X1 and R0 = R1 + 3·R_return, with R_return the screens (3 × 35 mm² Cu) in
+# parallel with the steel armour. Not a datasheet value: the brochure gives none.
+R_RETURN_ARRAY_OHM_PER_KM = 0.08
+R_RETURN_EXPORT_OHM_PER_KM = 0.05
+# Transformers: core-type units, Z0 = Z1, magnetising Z0 = 100 % of Z0 sc (pandapower's
+# suggested values; IEC 60909-0 §6.3.3 leaves Z0 to the manufacturer). PSE grid at the
+# POC: X0/X1 = 1.0, R0/X0 = 0.1 (approximation: a meshed 400 kV grid, many YN units).
+GRID_X0X = 1.0
+GRID_R0X0 = 0.1
+_ZERO_SEQ_TRAFO = {"vk0_percent": None, "vkr0_percent": None, "mag0_percent": 100.0,
+                   "mag0_rx": 0.0, "si0_hv_partial": 0.9}  # fmt: skip
+
 
 # ── Farm specification (SB-510 or the learner's project) ─────────
 
@@ -385,6 +406,11 @@ class FarmSpec:
     def oss_aux_mw(self) -> float:
         """OSS auxiliary load [MW] (approximation, scaled from SB-510's 1 MW)."""
         return OSS_AUX_MW_PER_MW * self.capacity_mw
+
+
+def _zero_seq(vk: float, vkr: float) -> dict[str, float]:
+    """Zero-sequence data of a core-type transformer (Z0 = Z1, see the constants)."""
+    return {**_ZERO_SEQ_TRAFO, "vk0_percent": vk, "vkr0_percent": vkr}
 
 
 def exact_pi_per_km(
@@ -699,6 +725,10 @@ def build_network(
         s_sc_min_mva=grid_ssc_mva * 0.8,
         rx_max=GRID_RX_RATIO,
         rx_min=GRID_RX_RATIO,
+        x0x_max=GRID_X0X,
+        x0x_min=GRID_X0X,
+        r0x0_max=GRID_R0X0,
+        r0x0_min=GRID_R0X0,
     )
 
     # ── Transformers ──────────────────────────────────────────────
@@ -714,10 +744,12 @@ def build_network(
         vkr_percent=TRAFO_220_400_VKR_PERCENT,
         pfe_kw=spec.onshore_pfe_kw,
         i0_percent=TRAFO_220_400_I0_PERCENT,
-        vector_group="YNyn0",
+        vector_group="YNyn",  # YNyn0: pandapower takes the clock number as shift_degree
+        shift_degree=0.0,
         parallel=NUM_ONSHORE_TRANSFORMERS,
         name="Trafo_220_400kV",
         **_OLTC,
+        **_zero_seq(TRAFO_220_400_VK_PERCENT, TRAFO_220_400_VKR_PERCENT),
     )
 
     # 66/220 kV OSS transformer (Dyn11)
@@ -732,10 +764,15 @@ def build_network(
         vkr_percent=TRAFO_66_220_VKR_PERCENT,
         pfe_kw=spec.oss_pfe_kw,
         i0_percent=TRAFO_66_220_I0_PERCENT,
-        vector_group="Dyn11",
+        vector_group="Dyn",  # Dyn11
+        shift_degree=330.0,
         parallel=NUM_OSS_TRANSFORMERS,
         name="Trafo_66_220kV",
         **_OLTC,
+        **_zero_seq(TRAFO_66_220_VK_PERCENT, TRAFO_66_220_VKR_PERCENT),
+        # one NER per unit at its 66 kV star point; the two in parallel with the coupler closed
+        rn_ohm=NER_OHM / NUM_OSS_TRANSFORMERS,
+        xn_ohm=0.0,
     )
 
     # ── Export Cables (2 × 220 kV in parallel, pi-model) ─────────
@@ -759,6 +796,9 @@ def build_network(
         x_ohm_per_km=x_km,
         c_nf_per_km=c_km,
         g_us_per_km=g_km,
+        r0_ohm_per_km=r_km + 3 * R_RETURN_EXPORT_OHM_PER_KM,
+        x0_ohm_per_km=x_km,
+        c0_nf_per_km=c_km,
         max_i_ka=cable.max_i_ka,
         endtemp_degree=80.0,  # XLPE max operating temperature for IEC 60909 min case
         parallel=spec.num_export_cables,
@@ -784,6 +824,9 @@ def build_network(
                 r_ohm_per_km=r_ohm_per_km(cable_spec),
                 x_ohm_per_km=cable_spec.x_ohm_per_km,
                 c_nf_per_km=cable_spec.c_nf_per_km,
+                r0_ohm_per_km=r_ohm_per_km(cable_spec) + 3 * R_RETURN_ARRAY_OHM_PER_KM,
+                x0_ohm_per_km=cable_spec.x_ohm_per_km,
+                c0_nf_per_km=cable_spec.c_nf_per_km,
                 max_i_ka=cable_spec.max_i_ka,
                 endtemp_degree=80.0,  # XLPE max operating temp for IEC 60909
                 name=f"Array_S{string_num + 1}_T{pos + 1}",
@@ -807,9 +850,10 @@ def build_network(
                 vkr_percent=WTG_TRAFO_VKR_PERCENT,
                 pfe_kw=WTG_TRAFO_PFE_KW_PER_MVA * spec.wtg_trafo_mva,
                 i0_percent=WTG_TRAFO_I0_PERCENT,
-                vector_group="Dyn11",
+                vector_group="Dyn",  # Dyn11
                 shift_degree=330.0,
                 name=f"WTG_TX_{i + 1:02d}",
+                **_zero_seq(WTG_TRAFO_VK_PERCENT, WTG_TRAFO_VKR_PERCENT),
             )
             bus_id = lv
         pp.create_sgen(

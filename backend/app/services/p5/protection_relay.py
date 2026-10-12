@@ -42,8 +42,20 @@ weakest string head section, and the fault currents come from that design's netw
 
 Fault currents: 66 kV from pandapower IEC 60909 (``calc_short_circuit``);
 along the export cable from the series-impedance chain with c = 1.10 plus
-the converters' rated-current infeed (k = 1). Balanced faults only — earth
-faults need zero-sequence data the model does not carry.
+the converters' rated-current infeed (k = 1).
+
+Earth faults (``run_earth_fault_study``, engineering audit F5): the 66 kV array is
+resistance earthed (one NER per OSS transformer star point, 1 kA), so a feeder earth
+fault draws ≈ 1.2–3.2 kA (IEC 60909 min / max, ``short_circuit.earth_fault_levels``),
+far below phase faults — the phase overcurrent stages do not see it. Residual stages:
+
+    66 kV feeder   PTOC-01N  DT, core-balance CT, pickup above the largest healthy
+                             feeder's own capacitive earth-fault current (sympathetic
+                             trips), 0.2 s
+    NER / incomer  PTOC-02N  DT on the NER CT, 2 × the feeder pickup, 0.6 s   backup
+    NER rating     10 s at 1 kA (short-time) — the backup must clear well inside it
+The 220 kV system is effectively earthed (onshore YNyn units, PSE grid): earth faults
+there are cleared by 87L / 87B and the distance relay's earth loops.
 
 Standards: IEC 60255-151 (overcurrent), -121 (distance), -127 (voltage),
 -181 (frequency), -187 (differential); IEC 62271-100; IEC 60909-0.
@@ -507,7 +519,10 @@ def run_coordination_study(
     ``fault_current_ka`` overrides it (useful to walk along a TCC).
     """
     if fault_type not in ("3ph", "ph_ph"):
-        msg = "fault_type must be '3ph' or 'ph_ph' (earth faults need zero-sequence data)"
+        msg = (
+            "fault_type must be '3ph' or 'ph_ph'; earth faults of the resistance-earthed "
+            "66 kV array: run_earth_fault_study (GET /api/v1/grid/protection/earth-fault)"
+        )
         raise ValidationError(msg)
     factor = 1.0 if fault_type == "3ph" else math.sqrt(3) / 2
     location, position = _resolve_location(fault_location, position_pct)
@@ -699,3 +714,100 @@ def get_tcc_plot_data(
             }
         )
     return curves
+
+
+# ── Earth faults (66 kV resistance-earthed array) ────────────────
+
+EF_FEEDER_DELAY_S = 0.2
+EF_BACKUP_DELAY_S = 0.6
+EF_SYMPATHETIC_MARGIN = 1.3  # pickup ≥ 1.3 × a healthy feeder's own capacitive current
+NER_RATED_TIME_S = 10.0  # short-time rating of the NER at its rated current
+
+
+def string_capacitive_earth_fault_a(spec: FarmSpec = SB510) -> list[float]:
+    """Capacitive earth-fault current each string feeds into a fault elsewhere [A]:
+    3·ω·C0·U0 of its cable sections (C0 = C1, individually screened cores)."""
+    u0 = ARRAY_KV * 1e3 / math.sqrt(3)
+    w = 2 * math.pi * 50.0
+    out = []
+    for n in spec.string_layout:
+        c_f = (
+            sum(
+                _get_cable_grade(n - pos, spec.turbine_rated_mw).c_nf_per_km * 1e-9
+                for pos in range(n)
+            )
+            * spec.array_cable_length_km
+        )
+        out.append(3 * w * c_f * u0)
+    return out
+
+
+def earth_fault_settings(spec: FarmSpec = SB510) -> tuple[RelaySetting, RelaySetting]:
+    """Feeder and NER residual stages of ``spec`` (pickups in primary amperes)."""
+    i_c = max(string_capacitive_earth_fault_a(spec))
+    feeder = math.ceil(EF_SYMPATHETIC_MARGIN * i_c / 10.0) * 10.0
+    return (
+        RelaySetting(
+            "PTOC-01N", ProtectionFunction.PTOC,
+            f"String feeder earth fault — core-balance CT, {feeder:.0f} A, DT "
+            f"{EF_FEEDER_DELAY_S:.1f} s", feeder, "A", EF_FEEDER_DELAY_S, "String feeder",
+            "IEC 60255-151",
+        ),
+        RelaySetting(
+            "PTOC-02N", ProtectionFunction.PTOC,
+            f"NER / incomer earth fault (backup) — {2 * feeder:.0f} A, DT "
+            f"{EF_BACKUP_DELAY_S:.1f} s", 2 * feeder, "A", EF_BACKUP_DELAY_S, "Incomer",
+            "IEC 60255-151",
+        ),
+    )  # fmt: skip
+
+
+def run_earth_fault_study(
+    fault_resistance_ohm: float = 0.0, spec: FarmSpec = SB510
+) -> dict[str, Any]:
+    """Earth fault on a 66 kV string feeder at the OSS: currents, residual protection and
+    its checks — selectivity (≥ 300 ms), no sympathetic trip of healthy feeders, the NER's
+    short-time rating, and the highest fault resistance the feeder stage still detects."""
+    from app.services.p2.network_model import NER_OHM
+    from app.services.p2.short_circuit import earth_fault_levels
+
+    hi = earth_fault_levels("max", spec)["OSS_66kV"]
+    lo = earth_fault_levels("min", spec)["OSS_66kV"]
+    feeder, backup = earth_fault_settings(spec)
+    # A resistive fault adds 3·R_f to the sequence loop Z(1) + Z(2) + Z(0), which the NER
+    # (3·R_N in Z(0)) makes nearly resistive: I = 3·U0 / (|Z_loop| + 3·R_f) ≈ U0 / (R_N + R_f)
+    u0 = ARRAY_KV * 1e3 / math.sqrt(3)
+    z_loop = 3 * u0 / (lo["ik1_ka"] * 1000.0)  # min case, c = 1.0
+    i_fault = 3 * u0 / (z_loop + 3 * fault_resistance_ohm)
+    r_max = max(z_loop / 3 * (lo["ik1_ka"] * 1000.0 / feeder.pickup_value) - z_loop / 3, 0.0)
+    events = [
+        _event(feeder, feeder.time_delay if i_fault >= feeder.pickup_value else math.inf, "main"),
+        _event(backup, backup.time_delay if i_fault >= backup.pickup_value else math.inf, "backup"),
+    ]
+    main, back = events
+    margin = (
+        back["trip_time_ms"] - main["trip_time_ms"]
+        if main["operated"] and back["operated"]
+        else None
+    )
+    i_c = string_capacitive_earth_fault_a(spec)
+    return {
+        "fault_location": "string_feeder",
+        "fault_type": "1ph",
+        "fault_resistance_ohm": fault_resistance_ohm,
+        "ik1_max_ka": hi["ik1_ka"],
+        "ik1_min_ka": lo["ik1_ka"],
+        "fault_current_a": round(i_fault, 1),
+        "ner_ohm": round(NER_OHM, 2),
+        "relay_sequence": events,
+        "settings": [feeder, backup],
+        "healthy_feeder_capacitive_a": [round(x, 1) for x in i_c],
+        "no_sympathetic_trip": feeder.pickup_value >= EF_SYMPATHETIC_MARGIN * max(i_c) - 1e-9,
+        "backup_margin_ms": None if margin is None else round(margin, 1),
+        "selective": margin is not None and margin >= 300.0 - 1e-6,
+        "ner_within_rating": back["clearance_time_ms"] / 1000.0 <= NER_RATED_TIME_S,
+        "max_detectable_resistance_ohm": round(r_max, 0),
+        "assessment": "PASS"
+        if main["operated"] and margin is not None and margin >= 300.0 - 1e-6
+        else "FAIL — fault resistance above the feeder stage's reach",
+    }

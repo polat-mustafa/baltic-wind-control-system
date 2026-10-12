@@ -56,10 +56,12 @@ Constants (SB-510)
 - 400 kV breaker rated: 50 kA
 """
 
+import math
+
 import pandapower.shortcircuit as sc
 
 from app.schemas.grid import ShortCircuitBusResult, ShortCircuitResponse
-from app.services.p2.network_model import SB510, FarmSpec, build_network
+from app.services.p2.network_model import NER_OHM, SB510, FarmSpec, build_network
 
 #: Full-converter fault current per unit of rated current used by default (IEC 60909-0:2016
 #: leaves it to the manufacturer; 1.0 is the lower end, ``k_sensitivity`` checks 1.0–1.5).
@@ -219,4 +221,55 @@ def k_sensitivity(spec: FarmSpec = SB510) -> list[dict[str, float | bool]]:
                 "breaker_adequate": r.breaker_adequate,
             }
         )
+    return out
+
+
+def earth_fault_levels(
+    case: str = "max", spec: FarmSpec = SB510, converter_k: float = CONVERTER_K
+) -> dict[str, dict[str, float]]:
+    """Single-line-to-earth fault currents Ik1'' at the main buses [kA] (audit F5).
+
+    pandapower's IEC 60909 ``fault="1ph"`` on the passive network with zero-sequence data
+    (``network_model``: cable C0 = C1, transformer Z0 = Z1, the OSS 66 kV star points
+    earthed through NERs; the WTG units are Dyn — delta on the 66 kV side, no zero-sequence
+    path). The full converters are current sources in the positive sequence; their part of
+    an earth fault reaches the fault through the sequence loop (IEC 60909-0:2016, current
+    sources in unbalanced faults):
+
+        Ik1'' = √3·c·U_n / |Z(1) + Z(2) + Z(0)|  +  3·|Z(1)|·ΣI_sk / |Z(1) + Z(2) + Z(0)|
+
+    with ΣI_sk = k·(P_WTG + Q_STATCOM)/(√3·U_n), added arithmetically (upper bound) and
+    Z(1) as the transfer impedance (conservative: the converters sit behind it). In the
+    resistance-earthed 66 kV array Z(0) ≈ 3·R_NER dominates, so Ik1'' stays near the NER
+    limit whatever the grid does; the min case (coupler open: one NER, no converters) is
+    what earth-fault protection must still see.
+    """
+    if case not in ("max", "min"):
+        raise ValueError(f"case must be 'max' or 'min', got '{case}'")
+    net = build_network(generation_fraction=1.0, r_at_operating_temp=False, spec=spec)
+    oss = net.trafo.index[net.trafo["name"] == "Trafo_66_220kV"][0]
+    if case == "min":
+        net.trafo.at[oss, "parallel"] = 1
+        net.trafo.at[oss, "rn_ohm"] = NER_OHM  # the one unit's own NER
+    sources_mva = 0.0 if case == "min" else converter_k * (spec.capacity_mw + spec.statcom_mvar)
+    net.sgen.loc[:, "in_service"] = False  # added analytically below
+    sc.calc_sc(net, fault="1ph", case=case, branch_results=False)
+    c = 1.1 if case == "max" else 1.0
+    out: dict[str, dict[str, float]] = {}
+    for idx in net.bus.index:
+        name = str(net.bus.at[idx, "name"])
+        if name not in ("PSE_400kV", "Onshore_220kV", "OSS_220kV", "OSS_66kV"):
+            continue
+        r = net.res_bus_sc.loc[idx]
+        un = float(net.bus.at[idx, "vn_kv"])
+        z1 = complex(r.rk_ohm, r.xk_ohm)
+        loop = abs(2 * z1 + complex(r.rk0_ohm, r.xk0_ohm))
+        grid = math.sqrt(3) * c * un / loop
+        conv = 3 * abs(z1) * sources_mva / (math.sqrt(3) * un) / loop
+        out[name] = {
+            "ik1_ka": round(grid + conv, 3),
+            "grid_ka": round(grid, 3),
+            "converters_ka": round(conv, 3),
+            "z0_ohm": round(abs(complex(r.rk0_ohm, r.xk0_ohm)), 2),
+        }
     return out

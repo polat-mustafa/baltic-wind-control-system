@@ -63,7 +63,7 @@ These are large (SKILL.md ≈ 28 KB, Project_Roadmap.md ≈ 93 KB). Do NOT read 
   §6 P5 Commissioning · §7 Integration Map · §8 Tech Stack/UI · §9 Standards Matrix
 - `docs/references.md` — method → implementation file → primary source (book, paper, standard) per module
 - `docs/engineering-audit-2026-10.md` — independent engineering audit: verified results, open findings F1–F9, plan to 10/10 (phases A–C); scripts in `backend/scripts/audit/`
-- `docs/ACIK_ISLER.md` — open items after the 2026-10 audit (owner's tasks + next technical work, Turkish); read first when continuing the audit work
+- `dev/ACIK_ISLER.md` — developer-only open items after the 2026-10 audit (owner's tasks + next technical work, Turkish; not part of the published docs); read first when continuing the audit work
 - `docs/offshoreforge-roadmap.md` — phase status (1–3 merged, 4–6 open), Phase 4–6 specs, hand-off notes; read before continuing the OffshoreForge work
 
 ## Memory files (Claude Code project memory directory)

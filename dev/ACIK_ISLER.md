@@ -1,5 +1,7 @@
 # Açık işler — mühendislik denetimi sonrası (Ekim 2026)
 
+> Geliştirici notu — yayımlanan dokümantasyonun (`docs/`, mkdocs) parçası değildir.
+
 Bu liste, `docs/engineering-audit-2026-10.md` §8'deki "open" maddelerinin uygulanabilir
 yapılacaklar listesidir. Yeni bir oturumda buradan devam et: önce bu dosyayı, sonra denetim
 belgesinin §8 bölümünü oku.
@@ -98,7 +100,7 @@ Bunlar "10/10" için şart; kendi kendine sertifikalanamaz.
 
 ```bash
 git checkout main && git pull
-cat docs/ACIK_ISLER.md
+cat dev/ACIK_ISLER.md
 sed -n '/## 8. Implementation status/,/## How to reproduce/p' docs/engineering-audit-2026-10.md
 cd backend && python -m pytest -m validation -q      # doğrulama kontrolleri
 ```

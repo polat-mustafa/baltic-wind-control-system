@@ -349,7 +349,7 @@ export default function LayoutPage() {
           )}
           <div className="flex flex-wrap items-center gap-1.5" data-tour="layout-tools">
             <Button size="sm" variant={p.addMode ? "primary" : "secondary"} onClick={() => p.setAddMode(!p.addMode)} aria-pressed={p.addMode}>
-              <MousePointerClick size={13} className="mr-1" /> {p.addMode ? "Click the map to add…" : "Add turbines"}
+              <MousePointerClick size={13} className="mr-1" /> {p.addMode ? "Place on the map…" : "Add turbines"}
             </Button>
             <Button size="sm" variant="secondary" onClick={() => p.selected && p.removeTurbine(p.selected)} disabled={!p.selected}>
               <Trash2 size={13} className="mr-1" /> Remove {p.selected ?? "selected"}

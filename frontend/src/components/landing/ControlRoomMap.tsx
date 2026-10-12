@@ -704,7 +704,8 @@ function ControlRoomMapInner({
         )}
       </div>
 
-      <MapCredits className="bottom-0 left-1/2 -translate-x-1/2 rounded-t max-sm:bottom-1 max-sm:left-auto max-sm:right-1 max-sm:translate-x-0 max-sm:rounded" />
+      {/* phones: under the zoom buttons — the bottom corners hold the environment card and the Tutor button */}
+      <MapCredits className="bottom-0 left-1/2 -translate-x-1/2 rounded-t max-sm:top-14 max-sm:bottom-auto max-sm:left-3 max-sm:translate-x-0 max-sm:rounded" />
       {ais.note && (
         <div className="pointer-events-none absolute bottom-7 left-1/2 z-10 max-w-[40%] -translate-x-1/2 truncate rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-xs text-text-muted">
           {ais.note}

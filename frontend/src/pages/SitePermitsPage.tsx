@@ -55,6 +55,8 @@ function Stepper() {
                 {isDone ? <CheckCircle2 size={11} aria-label="done" /> : `${i + 1}`}
                 <span className="hidden sm:inline">· {s.short}</span>
               </span>
+              {/* phones: the short name on its own line (five icons alone said nothing) */}
+              <span className="w-full truncate text-[11px] font-medium sm:hidden">{s.short}</span>
               <span className="hidden text-xs font-medium md:block">{s.title}</span>
               <span className="hidden text-xs lg:block">{s.duration}</span>
             </button>

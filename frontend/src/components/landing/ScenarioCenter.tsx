@@ -355,19 +355,21 @@ export default function ScenarioCenter() {
   }, [drill, setParams]);
 
   return (
-    <div className="absolute right-3 top-14 md:top-40 z-1000 flex flex-col items-end">
+    // Right under the wind card; the column reaches the map's foot (above the Tutor button on
+    // phones) so an open panel scrolls inside the map instead of running off its bottom.
+    <div className="pointer-events-none absolute bottom-3 right-3 top-16 z-1000 flex flex-col items-end max-sm:bottom-16">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-md border border-border-secondary bg-bg-primary/90 px-2.5 py-1.5 text-xs font-medium text-text-primary hover:bg-bg-hover"
+        className="pointer-events-auto flex shrink-0 items-center gap-1.5 rounded-md border border-border-secondary bg-bg-primary/90 px-2.5 py-1.5 text-xs font-medium text-text-primary hover:bg-bg-hover"
         aria-expanded={open}
       >
         <GraduationCap size={14} />
         Scenarios{active ? " · running" : ""}
       </button>
       {open && (
-        <div className="mt-1.5 w-[340px] overflow-hidden rounded-lg border border-border-primary bg-bg-primary/95 shadow-lg shadow-black/30 backdrop-blur-sm">
-          <div className="flex items-center border-b border-border-primary/60 text-xs">
+        <div className="pointer-events-auto mt-1.5 flex min-h-0 w-[min(340px,calc(100vw-48px))] flex-col overflow-hidden rounded-lg border border-border-primary bg-bg-primary/95 shadow-lg shadow-black/30 backdrop-blur-sm">
+          <div className="flex shrink-0 items-center border-b border-border-primary/60 text-xs">
             {(
               [
                 ["training", "Training"],
@@ -409,15 +411,17 @@ export default function ScenarioCenter() {
               </button>
             </div>
           </div>
-          {tab === "training" ? (
-            <TrainingTab />
-          ) : tab === "grid" ? (
-            <GridEventsTab />
-          ) : tab === "instructor" ? (
-            <InstructorTab />
-          ) : (
-            <StudyTab />
-          )}
+          <div className="min-h-0 overflow-y-auto overscroll-contain">
+            {tab === "training" ? (
+              <TrainingTab />
+            ) : tab === "grid" ? (
+              <GridEventsTab />
+            ) : tab === "instructor" ? (
+              <InstructorTab />
+            ) : (
+              <StudyTab />
+            )}
+          </div>
         </div>
       )}
     </div>

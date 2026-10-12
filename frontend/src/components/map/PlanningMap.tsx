@@ -179,7 +179,8 @@ export default function PlanningMap({
           <MapLibre mapStyle={style} attributionControl={false} />
         </DeckGL>
       )}
-      <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-1.5">
+      {/* phones: mid-right edge, the fixed Tutor button sits on the bottom-right corner */}
+      <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-1.5 max-sm:bottom-auto max-sm:top-1/2 max-sm:-translate-y-1/2">
         <button type="button" onClick={() => zoomBy(1)} aria-label="Zoom in" className={button}>
           <Plus size={15} />
         </button>

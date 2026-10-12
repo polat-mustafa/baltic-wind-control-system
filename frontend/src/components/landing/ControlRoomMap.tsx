@@ -28,6 +28,7 @@ import { WebMercatorViewport, type MapViewState, type PickingInfo } from "@deck.
 import { BitmapLayer, IconLayer, PathLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import type { StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import "../map/maplibreWorker";
 import { Layers, Minus, Plus } from "lucide-react";
 
 import {

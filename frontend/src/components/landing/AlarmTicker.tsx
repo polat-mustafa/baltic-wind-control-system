@@ -89,7 +89,7 @@ export default function AlarmTicker() {
             className="flex items-center gap-1.5 text-xs font-mono text-status-warning hover:text-text-primary transition-colors"
           >
             <span className="w-1 h-1 rounded-full bg-status-warning" />
-            {scadaAlarmCount} SCADA alarm{scadaAlarmCount !== 1 ? "s" : ""} active →
+            {`${scadaAlarmCount} SCADA alarm${scadaAlarmCount !== 1 ? "s" : ""} active →`}
           </Link>
         </>
       )}

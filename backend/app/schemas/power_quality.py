@@ -209,3 +209,53 @@ class HarmonicLimitsResponse(BaseModel):
     thd_limit_hv_pct: float = 3.0
     entries: list[HarmonicLimitEntry]
     pse_additional_note: str = ""
+
+
+# ── Converter interaction (detailed array, Norton models, impedance stability) ──
+
+
+class ConverterStabilityRequest(BaseModel):
+    """Grid-side converter of one WTG (per unit on its 17 MVA rating) and the study case."""
+
+    l_filter_pu: float = Field(0.15, gt=0.02, le=0.5, description="Converter-side filter L")
+    c_filter_pu: float = Field(0.08, gt=0.0, le=0.3, description="Filter capacitor C_f")
+    damping_r_pu: float | None = Field(
+        None, ge=0.0, le=5.0, description="Series R of the C_f branch; null: 1/(3 ω_r C_f)"
+    )
+    f_sw_hz: float = Field(2500.0, ge=500.0, le=10_000.0, description="Switching frequency")
+    bandwidth_hz: float = Field(250.0, ge=20.0, le=2000.0, description="Current-loop bandwidth")
+    feedforward: float = Field(0.0, ge=0.0, le=1.0, description="Grid-voltage feed-forward gain")
+    grid_ssc_factor: float = Field(1.0, ge=0.2, le=5.0, description="× design S_sc")
+    coupler_closed: bool = Field(False, description="OSS 66 kV bus coupler closed")
+    turbines_in_service: int | None = Field(None, ge=1, description="Converters online")
+
+
+class HarmonicBusRow(BaseModel):
+    bus: str
+    order: int
+    voltage_pct: float
+    limit_pct: float
+    utilisation_pct: float
+
+
+class ConverterStabilityResponse(BaseModel):
+    """Generalized Nyquist verdict, margins and harmonic voltages with Norton models."""
+
+    lcl_resonance_hz: float
+    non_passive_from_hz: float
+    damping_r_pu: float
+    standalone_stable: bool
+    standalone_vector_margin: float
+    stable: bool
+    unstable_poles: int
+    vector_margin: float
+    vector_margin_hz: float
+    phase_margin_deg: float
+    phase_margin_hz: float
+    loci_hz: list[float]
+    loci_min_distance: list[float]
+    thd_norton_pct: dict[str, float]
+    thd_ideal_sources_pct: dict[str, float]
+    thd_limit_pct: dict[str, float]
+    harmonics: list[HarmonicBusRow]
+    assumptions: list[str]

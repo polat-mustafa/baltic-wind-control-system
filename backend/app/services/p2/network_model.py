@@ -314,8 +314,7 @@ R_RETURN_EXPORT_OHM_PER_KM = 0.05
 # POC: X0/X1 = 1.0, R0/X0 = 0.1 (approximation: a meshed 400 kV grid, many YN units).
 GRID_X0X = 1.0
 GRID_R0X0 = 0.1
-_ZERO_SEQ_TRAFO = {"vk0_percent": None, "vkr0_percent": None, "mag0_percent": 100.0,
-                   "mag0_rx": 0.0, "si0_hv_partial": 0.9}  # fmt: skip
+_ZERO_SEQ_TRAFO = {"mag0_percent": 100.0, "mag0_rx": 0.0, "si0_hv_partial": 0.9}
 
 
 # ── Farm specification (SB-510 or the learner's project) ─────────

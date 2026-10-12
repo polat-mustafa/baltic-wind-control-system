@@ -372,9 +372,9 @@ def hdd_cable() -> CableDesign:
 
 
 def _cable(kind: str) -> CableDesign:
-    return {"subsea": calibrated_export_cable, "hdd": hdd_cable, "land": lambda: LAND_1C_1600}[
-        kind
-    ]()
+    if kind == "hdd":
+        return hdd_cable()
+    return LAND_1C_1600 if kind == "land" else calibrated_export_cable()
 
 
 _HDD = Installation(

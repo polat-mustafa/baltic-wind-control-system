@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from scipy.linalg import lu_factor, lu_solve
@@ -156,7 +157,7 @@ def simulate_energisation(
             g[1, 1] += g_rct
             return g, g_src, g_rl, g_rct
 
-        mats: dict[tuple[bool, float], tuple] = {}
+        mats: dict[tuple[bool, float], tuple[Any, ...]] = {}
         hist_c = np.zeros(n_nodes)  # capacitor history currents (node to ground)
         v_prev = np.zeros(n_nodes)
         e_prev = 0.0
@@ -222,9 +223,9 @@ def simulate_energisation(
         k0 = int(np.searchsorted(t, close_t[ph])) + n_cyc
         worst, dur = 0.0, 0.0
         for k in range(k0, steps - n_cyc, n_cyc // 4):
-            seg = i_brk[ph, k : k + n_cyc]
-            dc = float(seg.mean())
-            ac = 2 * abs(np.sum(seg * w)) / n_cyc
+            win = i_brk[ph, k : k + n_cyc]
+            dc = float(win.mean())
+            ac = 2 * abs(np.sum(win * w)) / n_cyc
             ratio = abs(dc) / max(ac, 1e-9)
             worst = max(worst, ratio)
             if ratio > 1.0:

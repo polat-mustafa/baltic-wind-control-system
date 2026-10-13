@@ -100,7 +100,7 @@ describe("SiteReport states", () => {
       height_m: 150,
       sector_frequencies: null,
       source: "NEWA",
-      license: "CC BY-NC 4.0",
+      license: "CC BY 4.0",
       approximate: false,
     };
     useSiteStore.setState({ report: { ...report(), wind } });

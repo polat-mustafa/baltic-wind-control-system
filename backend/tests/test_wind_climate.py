@@ -109,7 +109,7 @@ def test_region_pack_wind_is_plausible() -> None:
     assert sum(w.frequencies[7:11]) > 0.35
     for layer in pack.by_role("wind") + pack.by_role("wind_rose"):
         assert layer.source and layer.license and layer.retrieved
-    assert "NC" in pack.by_role("wind")[0].license  # NEWA is non-commercial
+    assert "NEWA" in pack.by_role("wind")[0].license  # NEWA atlases: CC BY 4.0, cite the consortium
 
 
 def test_sb510_defaults_match_the_site_pack():

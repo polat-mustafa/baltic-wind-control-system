@@ -178,6 +178,6 @@ The full method-to-source map is in [docs/references.md](docs/references.md).
 ## License
 
 [MIT](LICENSE) for the code. Bundled datasets keep their own licences (CC BY, CC BY-SA, ODbL,
-CC BY-NC …) — see [DATA_LICENSES.md](DATA_LICENSES.md), which also lists the non-affiliation
+ENTSO-E terms …) — see [DATA_LICENSES.md](DATA_LICENSES.md), which also lists the non-affiliation
 and trademark notes. OffshoreForge is an educational project. It is not certified engineering
 software and must not be used for real design or operational decisions.

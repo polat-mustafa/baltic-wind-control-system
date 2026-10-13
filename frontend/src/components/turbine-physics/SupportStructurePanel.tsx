@@ -112,7 +112,37 @@ export default function SupportStructurePanel() {
             <span>First natural frequencies:</span>{" "}
             <span translate="no" className="font-mono">{s.frequencies_hz.slice(0, 6).map((f) => f.toFixed(3)).join(" · ")} Hz</span>
           </p>
-          <StudyNote items={[s.source]} />
+          {(s.foundation?.length ?? 0) > 0 && (
+            <div className="overflow-x-auto">
+              <p className="mb-1 text-xs font-semibold text-text-secondary">Foundation sensitivity</p>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-text-muted">
+                    <th className="py-1 pr-2 font-medium">Foundation model</th>
+                    <th className="py-1 pr-2 text-right font-medium">f1 [Hz]</th>
+                    <th className="py-1 pr-2 text-right font-medium">Change [%]</th>
+                    <th className="py-1 text-right font-medium">Margin below 3P [%]</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {s.foundation.map((f) => (
+                    <tr key={f.case} className="border-t border-border-primary text-text-secondary">
+                      <td className="py-1 pr-2">{f.case}</td>
+                      <td className="py-1 pr-2 text-right font-mono">{f.first_bending_hz.toFixed(3)}</td>
+                      <td className="py-1 pr-2 text-right font-mono">{f.change_pct.toFixed(1)}</td>
+                      <td className={`py-1 text-right font-mono ${f.margin_to_3p >= s.required_margin ? "" : "text-status-alarm"}`}>{(f.margin_to_3p * 100).toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <StudyNote
+            items={[
+              s.source,
+              "Foundation sensitivity: a driven pile (D 3.0 m, 45 m) under each leg with API RP 2GEO / DNV-RP-C212 sand springs — initial p-y modulus k·z, t-z secant to the API shaft friction — in dense and loose sand, and with S = 1.3 D local scour (Sumer & Fredsøe). The jacket rocks on its legs' axial stiffness, so the t-z springs, much stiffer than the reference model's 1 GN/m, raise f1 and eat into the 3P margin: the soft-stiff verdict needs site geotechnics. The FE pile reproduces Matlock & Reese's long-pile head deflection.",
+            ]}
+          />
         </>
       )}
     </section>

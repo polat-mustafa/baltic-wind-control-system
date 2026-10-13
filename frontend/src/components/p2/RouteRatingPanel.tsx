@@ -92,6 +92,7 @@ export default function RouteRatingPanel() {
           <StudyNote
             items={[
               `IEC 60287-1-1 / -2-1 steady-state rating per section; export cable T2 calibrated to the datasheet (${r.calibrated_t2_k_m_w} K·m/W); verified against ${r.verification.case}. Load profile: full-farm current through the 30-year wind hindcast with each section's thermal time constant.`,
+              `IEC 60853-2 cyclic rating factor of the subsea section: M = ${r.subsea_cyclic.cyclic_factor_m.toFixed(2)} for six hours at full output after the 30-year mean loss-load factor μ = ${r.subsea_cyclic.loss_load_factor.toFixed(2)} — indicative, as wind has no daily cycle; the hourly hindcast above is the governing check.`,
             ]}
           />
         </>

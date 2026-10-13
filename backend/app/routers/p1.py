@@ -35,6 +35,7 @@ from app.routers.farm_spec import FarmSpecDep
 from app.services.lifecycle.availability_model import SOURCE as AVAILABILITY_SOURCE
 from app.services.lifecycle.availability_model import availability
 from app.services.p1.aep_calculator import (
+    DEFAULT_CURTAILMENT_LOSS,
     DEFAULT_ELECTRICAL_LOSS,
     DEFAULT_PRICE_EUR_MWH,
     Z_75,
@@ -275,7 +276,10 @@ class AEPCascadeRequest(BaseModel):
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     price_eur_mwh: float = Field(DEFAULT_PRICE_EUR_MWH, ge=10.0, le=300.0)
     curtailment_loss_percent: float = Field(
-        0.0, ge=0.0, le=30.0, description="Market / grid curtailment [%] (not assessed: 0)"
+        DEFAULT_CURTAILMENT_LOSS * 100,
+        ge=0.0,
+        le=30.0,
+        description="Market / grid curtailment [%] (default: PSE's last 12 months)",
     )
 
 
@@ -284,7 +288,10 @@ class CustomAEPCascadeRequest(CustomWakeRequest):
 
     price_eur_mwh: float = Field(DEFAULT_PRICE_EUR_MWH, ge=10.0, le=300.0)
     curtailment_loss_percent: float = Field(
-        0.0, ge=0.0, le=30.0, description="Market / grid curtailment [%] (not assessed: 0)"
+        DEFAULT_CURTAILMENT_LOSS * 100,
+        ge=0.0,
+        le=30.0,
+        description="Market / grid curtailment [%] (default: PSE's last 12 months)",
     )
 
 

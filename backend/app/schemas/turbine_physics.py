@@ -200,6 +200,17 @@ class TurbinePhysicsConfigResponse(BaseModel):
     source: str = Field(description="Origin of the turbine and controller data")
 
 
+class FoundationCase(BaseModel):
+    """f1 for one foundation model (clamped reference, piles on p-y / t-z springs, scour)."""
+
+    case: str
+    first_bending_hz: float
+    change_pct: float
+    margin_to_1p: float
+    margin_to_3p: float
+    soft_stiff_ok: bool
+
+
 class SupportStructureResponse(BaseModel):
     """Tower + jacket natural frequencies vs the rotor 1P / 3P and the 50-year wave band."""
 
@@ -215,6 +226,7 @@ class SupportStructureResponse(BaseModel):
     margin_to_3p: float
     required_margin: float
     source: str
+    foundation: list[FoundationCase] = []
 
 
 class TowerLoadsResponse(BaseModel):

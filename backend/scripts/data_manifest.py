@@ -66,6 +66,10 @@ PROVENANCE: dict[str, tuple[str, str]] = {
         "scripts/fetch_validation_farms.py",
     ),
     "entsoe_units.json": ("app/services/p4/real_data.py", "scripts/fetch_entsoe_units.py"),
+    "pse_curtailment.json": (
+        "app/services/p1/aep_calculator.py",
+        "scripts/fetch_pse_curtailment.py",
+    ),
     "baltic_power_energisation.json": (
         "app/routers/p5/real_data.py",
         "scripts/fetch_entsoe_units.py",
@@ -100,7 +104,8 @@ def data_files() -> list[Path]:
         and {"data", "validation_data"} & set(p.relative_to(BACKEND).parts)
         and "__pycache__" not in p.parts
     ]
-    return sorted(files)
+    # Sort by POSIX string: Windows Path ordering is case-insensitive, Linux's is not.
+    return sorted(files, key=lambda p: p.relative_to(BACKEND).as_posix())
 
 
 def _canonical_bytes(p: Path) -> bytes:

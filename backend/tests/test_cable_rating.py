@@ -8,12 +8,16 @@ import pytest
 from app.services.p2.cable_rating import (
     DATASHEET_CONDITION,
     EXPORT_3C_1000,
+    ROUTE,
     calibrated_export_cable,
+    cyclic_factor_by_superposition,
+    cyclic_rating_factor,
     hdd_options,
     load_profile_check,
     rating,
     reference_case_tb880,
     route_ratings,
+    subsea_cyclic_factor,
 )
 from app.services.p2.network_model import EXPORT_CABLE_1000
 
@@ -83,3 +87,36 @@ def test_thirty_years_of_wind_keep_every_section_below_90_c():
     hdd = next(r for r in rows if r["section"] == "HDD landfall")
     # the deep HDD (150 h time constant) never reaches its steady full-output temperature
     assert hdd["peak_conductor_c"] < 80.0
+
+
+# ── IEC 60853-2 cyclic rating ────────────────────────────────────
+
+_SUBSEA = ROUTE[1][2]
+_CYCLES = (
+    [0.3] * 8 + [0.6] * 4 + [1.0] * 6 + [0.6] * 6,
+    [0.2] * 12 + [1.0] * 12,
+)
+
+
+def test_a_flat_load_has_cyclic_factor_one():
+    """Y = 1 every hour (μ = 1): the cycle is the steady rating, M = 1 exactly."""
+    assert cyclic_rating_factor(calibrated_export_cable(), _SUBSEA, [1.0] * 24) == pytest.approx(
+        1.0
+    )
+
+
+@pytest.mark.parametrize("cycle", _CYCLES)
+def test_six_hour_formula_matches_full_superposition(cycle):
+    """IEC 60853-2 keeps six hours of the cycle and replaces the rest by μ; superposing the
+    whole periodic cycle on the same α(t)·(1 − k + kβ(t)) response agrees within 3 %."""
+    c = calibrated_export_cable()
+    m = cyclic_rating_factor(c, _SUBSEA, cycle)
+    assert 1.0 < m < 1.5
+    assert m == pytest.approx(cyclic_factor_by_superposition(c, _SUBSEA, cycle, days=10), rel=0.03)
+
+
+def test_subsea_cyclic_factor_from_the_hindcast():
+    """μ from 30 years of wind (charging current keeps I² well above zero at no wind)."""
+    r = subsea_cyclic_factor()
+    assert 0.3 < r["loss_load_factor"] < 1.0
+    assert 1.0 < r["cyclic_factor_m"] < 1.3

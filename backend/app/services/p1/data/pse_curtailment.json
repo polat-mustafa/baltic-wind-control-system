@@ -1,0 +1,222 @@
+{
+ "source": "PSE S.A., Raporty PSE (api.raporty.pse.pl): poze-redoze, his-wlk-cal, rce-pln; quarter-hours aggregated per month by scripts/fetch_pse_curtailment.py",
+ "units": "MWh per month; reductions positive",
+ "months": {
+  "2024-10": {
+   "quarters": 2980,
+   "wind_mwh": 2081668.5,
+   "red_balance_mwh": 12754.6,
+   "red_network_mwh": 3893.9,
+   "negative_price_quarters": 64,
+   "negative_price_potential_mwh": 86730.3,
+   "red_in_negative_mwh": 9973.6
+  },
+  "2024-11": {
+   "quarters": 2880,
+   "wind_mwh": 2315175.6,
+   "red_balance_mwh": 3334.9,
+   "red_network_mwh": 0.0,
+   "negative_price_quarters": 20,
+   "negative_price_potential_mwh": 32125.3,
+   "red_in_negative_mwh": 0.0
+  },
+  "2024-12": {
+   "quarters": 2976,
+   "wind_mwh": 2606590.5,
+   "red_balance_mwh": 10900.5,
+   "red_network_mwh": 549.4,
+   "negative_price_quarters": 84,
+   "negative_price_potential_mwh": 163386.7,
+   "red_in_negative_mwh": 6689.0
+  },
+  "2025-01": {
+   "quarters": 2976,
+   "wind_mwh": 3144706.5,
+   "red_balance_mwh": 35046.5,
+   "red_network_mwh": 570.4,
+   "negative_price_quarters": 84,
+   "negative_price_potential_mwh": 142098.0,
+   "red_in_negative_mwh": 21897.4
+  },
+  "2025-02": {
+   "quarters": 2688,
+   "wind_mwh": 1320453.2,
+   "red_balance_mwh": 1762.9,
+   "red_network_mwh": 35.9,
+   "negative_price_quarters": 0,
+   "negative_price_potential_mwh": 0.0,
+   "red_in_negative_mwh": 0.0
+  },
+  "2025-03": {
+   "quarters": 2972,
+   "wind_mwh": 1791973.9,
+   "red_balance_mwh": 22170.3,
+   "red_network_mwh": 722.8,
+   "negative_price_quarters": 184,
+   "negative_price_potential_mwh": 116335.1,
+   "red_in_negative_mwh": 7036.5
+  },
+  "2025-04": {
+   "quarters": 2880,
+   "wind_mwh": 1608939.6,
+   "red_balance_mwh": 31380.7,
+   "red_network_mwh": 355.6,
+   "negative_price_quarters": 316,
+   "negative_price_potential_mwh": 153135.6,
+   "red_in_negative_mwh": 11526.5
+  },
+  "2025-05": {
+   "quarters": 2976,
+   "wind_mwh": 1559412.6,
+   "red_balance_mwh": 16058.5,
+   "red_network_mwh": 3659.8,
+   "negative_price_quarters": 212,
+   "negative_price_potential_mwh": 105102.9,
+   "red_in_negative_mwh": 8082.1
+  },
+  "2025-06": {
+   "quarters": 2880,
+   "wind_mwh": 2084822.4,
+   "red_balance_mwh": 31616.2,
+   "red_network_mwh": 983.9,
+   "negative_price_quarters": 356,
+   "negative_price_potential_mwh": 246948.4,
+   "red_in_negative_mwh": 10930.8
+  },
+  "2025-07": {
+   "quarters": 2976,
+   "wind_mwh": 1263220.3,
+   "red_balance_mwh": 10466.5,
+   "red_network_mwh": 4491.4,
+   "negative_price_quarters": 28,
+   "negative_price_potential_mwh": 11429.4,
+   "red_in_negative_mwh": 0.0
+  },
+  "2025-08": {
+   "quarters": 2976,
+   "wind_mwh": 1238598.2,
+   "red_balance_mwh": 30759.8,
+   "red_network_mwh": 399.0,
+   "negative_price_quarters": 148,
+   "negative_price_potential_mwh": 83882.9,
+   "red_in_negative_mwh": 14975.2
+  },
+  "2025-09": {
+   "quarters": 2880,
+   "wind_mwh": 1706553.7,
+   "red_balance_mwh": 45009.5,
+   "red_network_mwh": 3902.6,
+   "negative_price_quarters": 48,
+   "negative_price_potential_mwh": 28062.3,
+   "red_in_negative_mwh": 2925.7
+  },
+  "2025-10": {
+   "quarters": 2980,
+   "wind_mwh": 2503768.3,
+   "red_balance_mwh": 110319.4,
+   "red_network_mwh": 211.4,
+   "negative_price_quarters": 38,
+   "negative_price_potential_mwh": 51184.5,
+   "red_in_negative_mwh": 6538.1
+  },
+  "2025-11": {
+   "quarters": 2880,
+   "wind_mwh": 1671314.9,
+   "red_balance_mwh": 12839.7,
+   "red_network_mwh": 145.2,
+   "negative_price_quarters": 0,
+   "negative_price_potential_mwh": 0.0,
+   "red_in_negative_mwh": 0.0
+  },
+  "2025-12": {
+   "quarters": 2976,
+   "wind_mwh": 1999968.1,
+   "red_balance_mwh": 32158.5,
+   "red_network_mwh": 0.0,
+   "negative_price_quarters": 0,
+   "negative_price_potential_mwh": 0.0,
+   "red_in_negative_mwh": 0.0
+  },
+  "2026-01": {
+   "quarters": 2976,
+   "wind_mwh": 2304024.3,
+   "red_balance_mwh": 28655.3,
+   "red_network_mwh": 24.1,
+   "negative_price_quarters": 41,
+   "negative_price_potential_mwh": 71708.2,
+   "red_in_negative_mwh": 9183.3
+  },
+  "2026-02": {
+   "quarters": 2688,
+   "wind_mwh": 1700207.1,
+   "red_balance_mwh": 21131.4,
+   "red_network_mwh": 51.7,
+   "negative_price_quarters": 12,
+   "negative_price_potential_mwh": 3312.5,
+   "red_in_negative_mwh": 0.0
+  },
+  "2026-03": {
+   "quarters": 2972,
+   "wind_mwh": 1549378.7,
+   "red_balance_mwh": 59391.6,
+   "red_network_mwh": 884.7,
+   "negative_price_quarters": 142,
+   "negative_price_potential_mwh": 93405.1,
+   "red_in_negative_mwh": 20072.9
+  },
+  "2026-04": {
+   "quarters": 2880,
+   "wind_mwh": 1759476.0,
+   "red_balance_mwh": 135760.0,
+   "red_network_mwh": 961.6,
+   "negative_price_quarters": 390,
+   "negative_price_potential_mwh": 272032.8,
+   "red_in_negative_mwh": 88661.8
+  },
+  "2026-05": {
+   "quarters": 2976,
+   "wind_mwh": 1325931.5,
+   "red_balance_mwh": 30688.7,
+   "red_network_mwh": 1114.0,
+   "negative_price_quarters": 248,
+   "negative_price_potential_mwh": 90200.6,
+   "red_in_negative_mwh": 10109.4
+  },
+  "2026-06": {
+   "quarters": 2880,
+   "wind_mwh": 991168.0,
+   "red_balance_mwh": 40248.9,
+   "red_network_mwh": 84.3,
+   "negative_price_quarters": 127,
+   "negative_price_potential_mwh": 54453.9,
+   "red_in_negative_mwh": 8723.7
+  },
+  "2026-07": {
+   "quarters": 2976,
+   "wind_mwh": 1849308.1,
+   "red_balance_mwh": 97006.1,
+   "red_network_mwh": 14986.4,
+   "negative_price_quarters": 152,
+   "negative_price_potential_mwh": 141224.7,
+   "red_in_negative_mwh": 29366.0
+  },
+  "2026-08": {
+   "quarters": 2976,
+   "wind_mwh": 1480848.9,
+   "red_balance_mwh": 30601.8,
+   "red_network_mwh": 252.1,
+   "negative_price_quarters": 123,
+   "negative_price_potential_mwh": 72942.6,
+   "red_in_negative_mwh": 6332.2
+  },
+  "2026-09": {
+   "quarters": 2880,
+   "wind_mwh": 2113230.9,
+   "red_balance_mwh": 56212.5,
+   "red_network_mwh": 212.6,
+   "negative_price_quarters": 87,
+   "negative_price_potential_mwh": 73869.7,
+   "red_in_negative_mwh": 7032.2
+  }
+ }
+}

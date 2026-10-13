@@ -58,8 +58,8 @@ export default {
     "Hesaplandı: bu tasarımın P2 yük akışı (kablolar, WTG üniteleri dahil transformatörler, reaktörler, STATCOM, OSS yardımcı tüketimi) 6 çıkış seviyesinde, saha Weibull dağılımıyla güç eğrisi ve iz kaybı üzerinden ağırlıklandırılmış",
   "Computed, energy-based {n1} % (time-based {n2} %): Carroll et al. 2016 failure rates and repair times; waiting for vessel windows on the SB-510 30-year Hs / wind hindcast":
     "Hesaplandı, enerjiye dayalı %{n1} (zamana dayalı %{n2}): Carroll vd. 2016 arıza oranları ve onarım süreleri; SB-510'un 30 yıllık Hs / rüzgâr geçmiş verisinde gemi pencerelerini bekleme",
-  "Not assessed: needs an hourly day-ahead price and PSE redispatch series (the farm offers nothing at negative prices, see the Market tab); enter your own value":
-    "Değerlendirilmedi: saatlik gün öncesi fiyat ve PSE yeniden dağıtım serisi gerekir (santral negatif fiyatlarda teklif vermez, Piyasa sekmesine bakın); kendi değerinizi girin",
+  "PSE open data {date1} – {date2}: wind redispatch {n1} % (balance and network) + negative-RCE hours {n2} % ({n3} h), in which the farm offers nothing; national wind as the proxy for SB-510":
+    "PSE açık verisi {date1} – {date2}: rüzgâr yeniden dağıtımı %{n1} (denge ve şebeke nedenli) + negatif RCE saatleri %{n2} ({n3} sa), bu saatlerde santral teklif vermez; SB-510 için vekil olarak ulusal rüzgâr",
   "Typical planning value ({n} % availability); {name} model it against distance to port":
     "Tipik planlama değeri (%{n} kullanılabilirlik); {name} bunu limana uzaklığa göre modeller",
   "{name} assume {n1} % for temperature shutdown, icing, hysteresis and lightning; this default keeps {n2} %":

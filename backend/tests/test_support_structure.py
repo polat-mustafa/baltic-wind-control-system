@@ -8,7 +8,9 @@ from app.services.lifecycle.weather import extreme_hs
 from app.services.turbine_physics.support_structure import (
     REFERENCE_JACKET_HZ,
     SOFT_STIFF_MARGIN,
+    foundation_sensitivity,
     jacket_modes,
+    pile_head_check,
 )
 
 
@@ -79,3 +81,35 @@ def test_support_structure_endpoint():
     assert body["soft_stiff_ok"] is True
     assert body["reference_hz"] == REFERENCE_JACKET_HZ
     assert body["band_1p_hz"][1] < body["first_bending_hz"] < body["band_3p_hz"][0]
+
+
+@pytest.mark.validation
+def test_fe_pile_matches_matlock_reese_long_pile(evidence):
+    """Free-head pile in soil with E_s = n_h·z: y = 2.435·H·T³/EI (embedment > 5T)."""
+    r = pile_head_check()
+    assert r["embedment_over_t"] > 5.0
+    ratio = r["fe_m"] / r["closed_form_m"]
+    assert ratio == pytest.approx(1.0, abs=0.03)
+    evidence(
+        "ts-pile-matlock-reese",
+        area="Turbine physics — structure",
+        kind="analytic",
+        claim="Jacket pile on API p-y springs (frame FE, foundation sensitivity)",
+        against="Matlock & Reese (1960) long-pile head deflection, linearly increasing modulus",
+        metric="FE / closed-form head deflection",
+        value=ratio,
+        unit="–",
+        limit="= 1 ± 0.03",
+    )
+
+
+def test_foundation_sensitivity():
+    """Piles on API small-strain springs stiffen the jacket (its legs' axial stiffness far
+    above the reference 1 GN/m), scour softens it slightly; f1 stays within ±10 %."""
+    rows = {r["case"].split(",")[0].split(" (")[0]: r for r in foundation_sensitivity()}
+    clamped = rows["Legs clamped at the mudline"]["first_bending_hz"]
+    dense = rows["Piles in dense sand"]["first_bending_hz"]
+    scour = rows["Piles in dense sand with local scour"]["first_bending_hz"]
+    assert clamped < dense < clamped * 1.1
+    assert scour < dense
+    assert all(r["margin_to_1p"] > SOFT_STIFF_MARGIN for r in rows.values())

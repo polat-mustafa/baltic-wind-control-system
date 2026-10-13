@@ -21,6 +21,7 @@ from app.schemas.turbine_physics import (
     AerodynamicStateRequest,
     AerodynamicStateResponse,
     CpSurfaceResponse,
+    FoundationCase,
     SimulationRequest,
     SimulationResponse,
     SimulationSummaryResponse,
@@ -70,6 +71,7 @@ from app.services.turbine_physics.simulator import (
 from app.services.turbine_physics.support_structure import (
     REFERENCE_JACKET_HZ,
     SOFT_STIFF_MARGIN,
+    foundation_sensitivity,
     jacket_modes,
 )
 from app.services.turbine_physics.yaw_control import (
@@ -301,6 +303,7 @@ def get_support_structure() -> SupportStructureResponse:
             "3D Euler-Bernoulli frame FE: IEA-15-240-RWT ElastoDyn tower + DEME 50 m jacket "
             "(SubDyn); reference 0.221 Hz from DEME's OpenFAST free decay"
         ),
+        foundation=[FoundationCase(**c) for c in foundation_sensitivity()],
     )
 
 

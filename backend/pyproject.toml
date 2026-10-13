@@ -7,7 +7,7 @@ include = ["app*"]
 
 [project]
 name = "offshoreforge-backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "OffshoreForge backend — offshore wind engineering simulation and training platform"
 requires-python = ">=3.13"
 dependencies = [

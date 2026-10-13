@@ -38,11 +38,14 @@ TESTS = [
     "tests/test_turbine_loads.py",
     "tests/test_harmonic_stability.py",
     "tests/test_emt_energisation.py",
+    "tests/test_emt_studies.py",
     "tests/test_om_simulation.py",
     # needs opendssdirect.py (not a project dependency); skipped where it is missing
     "tests/test_opendss_cross_check.py",
     # needs floris==4.2.1 (not a project dependency); skipped where it is missing
     "tests/test_floris_cross_check.py",
+    # needs wombat==0.13.4 (not a project dependency); skipped where it is missing
+    "tests/test_wombat_cross_check.py",
     # ANDES runs on Linux only (Windows application control blocks it); its rows are
     # written from the backend Docker image, see the module docstring
     "tests/test_andes_dynamics.py",

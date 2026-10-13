@@ -20,6 +20,17 @@ export interface SupportStructure {
   margin_to_3p: number;
   required_margin: number;
   source: string;
+  /** f1 for each foundation model: clamped reference, piles on API p-y / t-z springs, scour. */
+  foundation: FoundationCase[];
+}
+
+export interface FoundationCase {
+  case: string;
+  first_bending_hz: number;
+  change_pct: number;
+  margin_to_1p: number;
+  margin_to_3p: number;
+  soft_stiff_ok: boolean;
 }
 
 export interface TowerLoads {

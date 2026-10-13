@@ -18,8 +18,8 @@ authors:
     given-names: Mustafa
 repository-code: "https://github.com/polat-mustafa/offshoreforge"
 license: MIT
-version: 0.1.0
-date-released: "2026-10-12"
+version: 0.2.0
+date-released: "2026-10-13"
 keywords:
   - offshore wind
   - power systems

@@ -42,6 +42,7 @@ reference condition; every other section then follows from IEC 60287-2-1.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from functools import lru_cache
 
@@ -499,6 +500,154 @@ def _rating_trefoil_solid(c: CableDesign, inst: Installation) -> RatingResult:
         theta_s = theta_j + (w_c * (1 + lam1) + w_d) * t3
         theta_c = theta_s + (w_c + w_d / 2) * t1
     return RatingResult(current, theta_c, theta_s, lam1, 0.0, r, t1, 0.0, t3, t4, w_d)
+
+
+# ── IEC 60853-2 cyclic rating factor ─────────────────────────────
+
+#: Volumetric specific heat [J/(m³·K)] (IEC 60853-2 Table 1 / IEC 60287 practice).
+#: PP yarn and PP filler taken as 2.0e6 (textile/fibre class) — APPROXIMATION.
+C_VOL = {"cu": 3.45e6, "al": 2.5e6, "lead": 1.45e6, "steel": 3.8e6, "xlpe": 2.4e6, "pp": 2.0e6}
+#: Soil thermal diffusivity [m²/s], IEC 60853-2 default when no site value is known.
+SOIL_DIFFUSIVITY = 0.5e-6
+
+
+def _ring(d_in_mm: float, t_mm: float) -> float:
+    """Area of a layer of thickness t over diameter d_in [m²]."""
+    return math.pi / 4 * ((d_in_mm + 2 * t_mm) ** 2 - d_in_mm**2) * 1e-6
+
+
+def _two_loop(c: CableDesign, steady: RatingResult) -> tuple[float, float, float, float, float]:
+    """Cable-internal two-loop network of IEC 60853-2 §4.2 (CIGRE Electra 87), per core and
+    normalised to that core's conductor loss W_c: T_A = T1, Q_A = Q_c + p·Q_i (Van Wormer
+    p splits the insulation), T_B the rest of the rise to the surface, Q_B = (1 − p)·Q_i +
+    the outer layers' capacities divided by the heat-flow ratio q at their place (q_s = 1 + λ1
+    for sheath and core jacket; n·(1 + λ1 + λ2) for a three-core cable's filler, armour and
+    serving, which the n cores share). Returns (T_a, a, T_b, b, T_A + T_B)."""
+    n = c.cores
+    q_s = 1 + steady.lambda1
+    q_a = n * (1 + steady.lambda1 + steady.lambda2)
+    d_c, d_i = c.d_conductor + 2 * c.t_conductor_screen, c.d_insulation
+    ratio = d_i / d_c
+    p = 1 / (2 * math.log(ratio)) - 1 / (ratio**2 - 1)
+    q_cond = C_VOL["cu"] * math.pi / 4 * c.d_conductor**2 * 1e-6
+    q_ins = C_VOL["xlpe"] * _ring(
+        c.d_conductor, c.t_conductor_screen + c.t_insulation + c.t_insulation_screen
+    )
+    sheath_c = C_VOL["al"] if c.sheath == ALUMINIUM else C_VOL["lead"]
+    d_sh = c.d_insulation + 2 * c.t_insulation_screen
+    q_outer = (
+        sheath_c * _ring(d_sh, c.t_sheath)
+        + C_VOL["xlpe"] * _ring(d_sh + 2 * c.t_sheath, c.t_core_jacket)
+    ) / q_s
+    t_b = n * q_s * steady.t2 + steady.t3 * (q_a if n == 3 else q_s)
+    if n == 3:
+        d_arm_in = c.d_armour_mean - c.t_armour_wire
+        filler = math.pi / 4 * d_arm_in**2 * 1e-6 - n * math.pi / 4 * c.d_core**2 * 1e-6
+        steel = math.pi * c.d_armour_mean * c.t_armour_wire * 1e-6 * math.pi / 4  # round wires
+        serving = _ring(c.d_armour_mean + c.t_armour_wire, c.t_serving)
+        q_outer += (C_VOL["pp"] * (filler + serving) + C_VOL["steel"] * steel) / q_a
+    t_a_, q_a_ = steady.t1, q_cond + p * q_ins
+    q_b_ = (1 - p) * q_ins + q_outer
+    m0 = 0.5 * (t_a_ * q_a_ + t_b * (q_a_ + q_b_))
+    n0 = t_a_ * q_a_ * t_b * q_b_
+    root = math.sqrt(m0 * m0 - n0)
+    a, b = (m0 + root) / n0, (m0 - root) / n0
+    big_ta = (1 / q_a_ - b * (t_a_ + t_b)) / (a - b)
+    return big_ta, a, t_a_ + t_b - big_ta, b, t_a_ + t_b
+
+
+def _theta_ratio(
+    c: CableDesign, inst: Installation, steady: RatingResult
+) -> Callable[[float], float]:
+    """θR(t)/θR(∞) = α(t)·(1 − k + k·β(t)) of IEC 60853-2 §4.2 for a cable buried directly
+    in soil: α the cable-internal attainment (two-loop network), β the soil's transient
+    T4(t)/T4 = [E1(D_e²/16δt) − E1(L²/δt)] / (2·ln(4L/D_e)) (E1(x) = −Ei(−x); the image
+    source at 2L), k the share of the steady rise that is external."""
+    from scipy.special import exp1
+
+    if inst.kind != "buried" or inst.other_circuit_m is not None:
+        raise ValueError("cyclic factor implemented for a single buried cable only")
+    big_ta, a, big_tb, b, t_int = _two_loop(c, steady)
+    n = c.cores
+    w_i_per_wc = n * (1 + steady.lambda1 + steady.lambda2)
+    k = w_i_per_wc * steady.t4 / (t_int + w_i_per_wc * steady.t4)
+    d_e, depth = c.d_outer / 1000, inst.depth_m
+
+    def ratio(t_h: float) -> float:
+        if t_h <= 0:
+            return 0.0
+        t = t_h * 3600
+        alpha = (big_ta * (1 - math.exp(-a * t)) + big_tb * (1 - math.exp(-b * t))) / t_int
+        beta = (
+            exp1(d_e**2 / (16 * SOIL_DIFFUSIVITY * t)) - exp1(depth**2 / (SOIL_DIFFUSIVITY * t))
+        ) / (2 * math.log(4 * depth / d_e))
+        return alpha * (1 - k + k * float(beta))
+
+    return ratio
+
+
+def cyclic_rating_factor(c: CableDesign, inst: Installation, daily_y: list[float]) -> float:
+    """IEC 60853-2 cyclic rating factor M for a 24-hour load cycle.
+
+    ``daily_y`` = 24 hourly values of (I/I_max)². For each candidate hour of maximum
+    temperature the six preceding hours are taken one by one and everything earlier as the
+    loss-load factor μ (the cycle's mean Y):
+
+        M = 1 / √( Σ_{i=0}^{5} Y_i·[θR(i+1) − θR(i)]/θR(∞) + μ·[1 − θR(6)/θR(∞)] )
+
+    and the smallest M over the 24 candidate hours is the factor (IEC 60853-2 §1.4: the time
+    of maximum is not known in advance). M·I_steady is the permissible peak of the cycle."""
+    if len(daily_y) != 24:
+        raise ValueError("daily_y needs 24 hourly values")
+    ratio = _theta_ratio(c, inst, rating(c, inst))
+    r = [ratio(float(h)) for h in range(7)]
+    mu = sum(daily_y) / 24
+    best = math.inf
+    for end in range(24):
+        y = [daily_y[(end - 1 - i) % 24] for i in range(6)]  # Y_0 = the hour ending at max
+        s = sum(y[i] * (r[i + 1] - r[i]) for i in range(6)) + mu * (1 - r[6])
+        best = min(best, 1 / math.sqrt(s))
+    return best
+
+
+def cyclic_factor_by_superposition(
+    c: CableDesign, inst: Installation, daily_y: list[float], days: int = 60
+) -> float:
+    """The same M without the six-hour simplification: the periodic cycle superposed hour by
+    hour over ``days`` days of history (losses ∝ I², as IEC 60853-2 assumes). Check only."""
+    ratio = _theta_ratio(c, inst, rating(c, inst))
+    hours = 24 * days
+    r = [ratio(float(h)) for h in range(hours + 1)]
+    steps = np.diff(r)
+    tail = sum(daily_y) / 24 * (1 - r[-1])  # history older than ``days`` at its mean
+    peak = max(
+        sum(daily_y[(end - 1 - i) % 24] * steps[i] for i in range(hours)) + tail
+        for end in range(24)
+    )
+    return 1 / math.sqrt(peak)
+
+
+@lru_cache(maxsize=1)
+def subsea_cyclic_factor() -> dict[str, float]:
+    """M of the subsea section for the IEC 60853-2 form a wind farm fits: six hours at full
+    output after a day at the 30-year mean loss-load factor μ = mean (I/I_full)² (wind has no
+    daily cycle, so μ comes from the hindcast). Indicative only — the hourly 30-year
+    ``load_profile_check`` is the governing thermal check."""
+    from app.services.lifecycle import weather
+    from app.services.p1.turbine_models import get_turbine
+    from app.services.p2.annual_losses import operating_curve
+    from app.services.p2.network_model import SB510
+
+    fractions, _total, parts = operating_curve(SB510)
+    _t, _hs, v10 = weather.hindcast()
+    turbine = get_turbine(None)
+    frac = turbine.power_curve_kw(weather.hub_wind(v10)) / turbine.rated_kw
+    current = np.interp(frac * (1 - WAKE_LOSS_FOR_PROFILE), fractions, parts["export_current_a"])
+    mu = float(np.mean((current / parts["export_current_a"][-1]) ** 2))
+    inst = next(i for name, _k, i in ROUTE if name == "Subsea burial")
+    daily = [mu] * 18 + [1.0] * 6
+    m = cyclic_rating_factor(calibrated_export_cable(), inst, daily)
+    return {"loss_load_factor": round(mu, 3), "cyclic_factor_m": round(m, 3)}
 
 
 # ── Load-profile check: the route through 30 years of real wind ──

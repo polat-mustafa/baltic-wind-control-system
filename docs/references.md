@@ -25,6 +25,7 @@ Citation rules used here:
 | Wake-model validation: NOJ / BPA / TurbOPark vs measured Horns Rev 1 and Lillgrund row power ratios (PyWake validation data, MIT), wind-direction uncertainty averaging; TurbOPark verified against Ørsted's MATLAB example | `services/p1/wake_validation.py`, `services/p1/validation_data/pywake/`, `tests/test_wake_validation.py` | [41], [45], [46] |
 | AEP-chain validation: ERA5 100 m wind → α 0.14 shear → SWT-2.3-93 power curve → BPA wakes (PyWake, hourly time series) → cascade losses, scored against Rødsand II's metered output (ENTSO-E 16.1.A): calendar 2025 and every month June 2024 – September 2026 (days with the farm capped or off left out); layout from OpenStreetMap (ODbL) | `services/p1/aep_validation.py`, `services/p1/validation_data/roedsand2/`, `scripts/fetch_validation_farms.py`, `tests/test_aep_validation.py` | ERA5: Hersbach et al. 2020, DOI 10.1002/qj.3803; ENTSO-E Transparency Platform 16.1.A; [41] |
 | AEP loss cascade, P50/P90 | `services/p1/aep_calculator.py` | [1], [2] |
+| Curtailment step: wind redispatch (balance, network) and negative-RCE hours from PSE open data | `services/p1/aep_calculator.py` (`pse_curtailment`), `scripts/fetch_pse_curtailment.py`, `services/p1/data/pse_curtailment.json` | PSE S.A., Raporty PSE (api.raporty.pse.pl): poze-redoze, his-wlk-cal, rce-pln |
 | Own-project AEP cascade (own positions, turbine, site Weibull + 12-sector rose) | `routers/p1.py` (`/aep-cascade-custom`), `frontend/src/store/windResourceStore.ts` | [1], [2], [9] |
 | Power / thrust curve, cut-in/out (IEA 15 MW and 22 MW reference turbines) | `services/p1/turbine_models.py`, `app/data/turbines/`, `scripts/fetch_turbine_curves.py`, `frontend/src/constants/turbineModels.ts` | [S2], [26], [27] |
 | windIO 2.x plant export (site, wind resource, layout, turbine) | `services/p1/windio.py`, `routers/projects.py` (`/projects/{id}/windio.yaml`) | [31] |
@@ -46,6 +47,7 @@ Citation rules used here:
 | Power quality (harmonic filter: damped high-pass) | `services/p2/power_quality.py` | [S8], [S9], [S36] |
 | Plant losses (WTG transformers, reactors, STATCOM, auxiliaries), annual electrical loss over the site Weibull | `services/p2/network_model.py` (`loss_breakdown_mw`), `annual_losses.py` | [10] |
 | IEC 60287 rating per route section, HDD landfall, 30-year load-profile check; verified on CIGRE TB 880 case 0-1 | `services/p2/cable_rating.py`, `routers/p2_cable_dts.py` (`/cable/route-rating`) | [S7], [54] |
+| IEC 60853-2 cyclic rating factor (two-loop cable network, soil transient with the exponential integral) | `services/p2/cable_rating.py` (`cyclic_rating_factor`) | [S45] |
 | Detailed harmonic network, converter Norton admittance (delayed current control, damped LCL), generalized Nyquist stability | `services/p2/harmonic_stability.py` | [55], [56], [57], [58] |
 | Zero sequence, NER earthing, single-phase faults, 51N settings | `services/p2/short_circuit.py` (`earth_fault_levels`), `services/p5/protection_relay.py` | [S4], [S16] |
 | Cross-checks: load flow re-solved in OpenDSS; wake models vs FLORIS | `scripts/audit/c2_opendss_load_flow.py`, `c2_floris_wakes.py` | [59], [60] |
@@ -89,6 +91,7 @@ Citation rules used here:
 | Grid-code compliance tests | `services/p5/grid_code_testing.py` | [S5], [S18] |
 | Arc-flash incident energy | `services/p5/loto.py` | [S19] |
 | EMT of cable + reactor energisation (trapezoidal companion models, pre-insertion resistor, point-on-wave) | `services/p5/emt_energisation.py` | [61], [52] |
+| Insulation co-ordination from statistical switching overvoltages; transformer inrush; TOV after fault clearing | `services/p5/emt_studies.py` | [S46], [S47], [64] |
 
 ## Digital twin — condition monitoring
 
@@ -114,6 +117,7 @@ Citation rules used here:
 | Steady state vs the official IEA 15 MW table (rpm, pitch, power, thrust at 6–20 m/s) | `tests/test_turbine_physics_reference.py` | [26] |
 | CMS: bearing defect frequencies, generator electrical lines, hydraulic-oil grade | `services/p3/cms.py` | [S24], [S35] |
 | Tower + jacket natural frequencies (3D frame FE) vs 1P / 3P; verified against DEME's OpenFAST jacket model | `services/turbine_physics/support_structure.py` | [26], [62], [S41] |
+| Pile p-y / t-z springs, scour, foundation sensitivity of f1; long-pile check | `services/turbine_physics/support_structure.py` (`foundation_sensitivity`, `pile_head_check`) | [S48], [65], [66], [67] |
 | Tower fore-aft loads: NTM Kaimal wind, IEC coherence, rainflow, DEL | `services/turbine_physics/loads.py` | [S1], [S42], [S43] |
 
 ## Site assessment — screening
@@ -248,7 +252,11 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 60. NREL FLORIS 4.2.1, github.com/NREL/floris; TurbOPark Gaussian: Pedersen, J. G., et al., *J. Phys.: Conf. Ser.* 2265, 022063, 2022.
 61. Dommel, H. W. "Digital computer solution of electromagnetic transients in single- and multiphase networks." *IEEE Transactions on Power Apparatus and Systems* PAS-88(4), 1969.
 62. DEME Group, IEA-15-240-RWT on a 3-legged jacket for 50 m water depth (OpenFAST / SubDyn input), github.com/mmrocze2/IEA-15-240-RWT.
-63. NREL WOMBAT (Windfarm Operations and Maintenance cost-Benefit Analysis Tool), github.com/WISDEM/WOMBAT — the structure the O&M simulation follows (not run here).
+63. NREL WOMBAT (Windfarm Operations and Maintenance cost-Benefit Analysis Tool), github.com/WISDEM/WOMBAT — the structure the O&M simulation follows; v0.13.4 is run against it in `scripts/audit/c2_wombat_om.py`.
+64. Specht, T. R. "Transformer magnetizing inrush current." *AIEE Transactions* 70(1), 1951, 323–328.
+65. Matlock, H. and Reese, L. C. "Generalized solutions for laterally loaded piles." *Journal of the Soil Mechanics and Foundations Division* 86(SM5), ASCE, 1960.
+66. Sumer, B. M. and Fredsøe, J. *The Mechanics of Scour in the Marine Environment.* World Scientific, 2002.
+67. Björkqvist, J.-V. et al. "Comparing a 41-year model hindcast with decades of wave measurements from the Baltic Sea." *Ocean Engineering* 152, 2018, 57–71. doi:10.1016/j.oceaneng.2018.01.048.
 
 ## Standards and regulations
 
@@ -296,3 +304,7 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 - **[S42]** ASTM E1049-85 (reapproved 2017) — Standard practices for cycle counting in fatigue analysis.
 - **[S43]** DNV-RP-C203 — Fatigue design of offshore steel structures (S-N slope m = 4 for welded steel in air at high cycles, as used for the DEL).
 - **[S44]** DNV-RP-C205 — Environmental conditions and environmental loads (Hs–Tp relation of the extreme sea state).
+- **[S45]** IEC 60853-2 — Calculation of the cyclic and emergency current rating of cables, Part 2: cables greater than 18/30 (36) kV.
+- **[S46]** IEC 60071-1:2006 — Insulation co-ordination, Part 1 (Table 2: standard insulation levels, U_m ≤ 245 kV).
+- **[S47]** IEC 60071-2:1996 — Insulation co-ordination, Part 2: application guide (eq. D.2, §4.3.4 K_s, Table 2 test conversion factors).
+- **[S48]** API RP 2GEO / DNV-RP-C212 — Geotechnical design of offshore foundations (p-y and t-z curves for sand).

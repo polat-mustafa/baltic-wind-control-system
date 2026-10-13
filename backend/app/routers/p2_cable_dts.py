@@ -114,10 +114,12 @@ async def get_route_rating() -> dict[str, object]:
     from app.services.p2 import cable_rating as cr
 
     profile = await asyncio.to_thread(cr.load_profile_check)
+    cyclic = await asyncio.to_thread(cr.subsea_cyclic_factor)
     return {
         "sections": cr.route_ratings(),
         "hdd_options": cr.hdd_options(),
         "load_profile": profile,
+        "subsea_cyclic": cyclic,
         "datasheet_rating_a": cr.DATASHEET_RATING_A,
         "calibrated_t2_k_m_w": round(cr.calibrated_export_cable().t2_k_m_w, 4),
         "verification": {

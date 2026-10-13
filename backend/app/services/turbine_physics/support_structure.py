@@ -28,8 +28,15 @@ test_support_structure.py compares. SB-510's sites are 37–51 m deep; the 50 m 
 reference structure for the deepest positions (a shallower site gives a stiffer jacket).
 The 50-year sea state (Hs50 from the 30-year hindcast, ``lifecycle.weather.extreme_hs``)
 sets the wave-excitation band 1/Tp, which must lie well below f1.
-Not modelled: hydrodynamic added mass of the members (≈ 1–2 % on frequency), pile–soil
-flexibility beyond the vertical spring (as in the reference model), rotor aero-elasticity.
+Foundation (audit 2.4, ``foundation_sensitivity``): the reference model clamps the legs at
+the mudline with a 1 GN/m vertical spring. The alternative puts a driven pile under each
+foot with API RP 2GEO / DNV-RP-C212 sand springs (initial p-y modulus k·z, t-z secant to the
+API shaft friction), for dense and loose sand and with S = 1.3·D local scour; the FE pile
+alone reproduces Matlock & Reese's long-pile head deflection (``pile_head_check``). The
+jacket rocks on its legs' axial stiffness, so the t-z springs — far stiffer than 1 GN/m —
+govern f1, not the lateral p-y springs or scour.
+Not modelled: hydrodynamic added mass of the members (≈ 1–2 % on frequency), pile batter
+(the piles follow the vertical, not the leg), rotor aero-elasticity.
 """
 
 from __future__ import annotations
@@ -122,6 +129,23 @@ TP_MASS_KG = 150_000.0  # at each of joints 1–3
 TP_INERTIA = (1.25e6, 1.25e6, 2.5e6)
 SOIL_KZZ = 1e9  # N/m at each leg foot
 INTERFACE_Z = 30.0
+
+# ── Piles and soil (audit 2.4) — APPROXIMATIONS: no site geotechnics or pile design ──
+#: One driven open-ended steel pile under each leg foot (typical for 15 MW jackets on sand).
+PILE_D_M, PILE_T_M, PILE_L_M = 3.0, 0.070, 45.0
+PILE_SEGMENT_M = 1.5
+#: Submerged sand, API RP 2GEO / DNV-RP-C212: initial modulus of subgrade reaction k [N/m³]
+#: below the water table (125 lb/in³ dense, φ' 36°; 20 lb/in³ loose, φ' 30°) and the API
+#: limiting shaft friction f_max [Pa] — the two ends of what a Baltic sand site may be.
+SANDS = {"dense": (34.0e6, 36.0, 96.0e3), "loose": (5.4e6, 30.0, 67.0e3)}
+SAND_GAMMA_EFF = 10.0e3  # submerged unit weight [N/m³]
+#: API t-z for sand: shaft friction f = K·σ'v·tan δ (K = 0.8 open-ended, δ = φ' − 5°,
+#: capped at f_max), mobilised at z = 2.54 mm (0.1 in) — the initial (secant) stiffness.
+TZ_K, TZ_Z_PEAK_M = 0.8, 0.00254
+#: Local scour depth around a slender pile, S/D ≈ 1.3 (Sumer & Fredsøe, The Mechanics of
+#: Scour in the Marine Environment, 2002; DNV-OS-J101) — springs removed above it.
+SCOUR_OVER_D = 1.3
+SOIL_CASES = ("clamped", "dense", "dense_scour", "loose")
 
 
 def _tube(d: float, t: float) -> tuple[float, float]:
@@ -239,9 +263,79 @@ class _Assembly:
     base: int
 
 
-@lru_cache(maxsize=4)
-def _assemble(tower_elements_per_station: int = 2) -> _Assembly:
-    """Frame FE model of tower + jacket + RNA (module docstring)."""
+Element = tuple[int, int, float, float, float, float, float]
+
+
+def _pile_springs(depth_m: float, scour_m: float, sand: str) -> tuple[float, float]:
+    """Lateral (p-y initial, k·z) and axial (t-z secant) spring per metre of pile [N/m²]
+    at ``depth_m`` below the original seabed; zero in the scour hole, and the effective
+    stress of the remaining soil starts from the scoured surface."""
+    z = depth_m - scour_m
+    if z <= 0:
+        return 0.0, 0.0
+    sigma_v = SAND_GAMMA_EFF * z
+    k_sub, phi, f_max = SANDS[sand]
+    f = min(TZ_K * sigma_v * math.tan(math.radians(phi - 5.0)), f_max)
+    return k_sub * z, math.pi * PILE_D_M * f / TZ_Z_PEAK_M
+
+
+def _pile(
+    scour_m: float, sand: str = "dense"
+) -> tuple[list[Element], list[tuple[int, float, float]], float]:
+    """A pile in local node numbers (0 = head, k at depth k·seg): beam elements and soil
+    springs (node, lateral, axial) [N/m] lumped over each node's tributary length."""
+    a, i = _tube(PILE_D_M, PILE_T_M)
+    props = (E_STEEL * a, E_STEEL * i, G_STEEL * 2 * i, RHO_STEEL * a, RHO_STEEL * 2 * i)
+    n_seg = round(PILE_L_M / PILE_SEGMENT_M)
+    seg = PILE_L_M / n_seg
+    elems: list[Element] = [(k - 1, k, *props) for k in range(1, n_seg + 1)]
+    springs = []
+    for k in range(n_seg + 1):
+        trib = seg if 0 < k < n_seg else seg / 2
+        lat, ax = _pile_springs(k * seg, scour_m, sand)
+        springs.append((k, lat * trib, ax * trib))
+    return elems, springs, seg
+
+
+def pile_head_check() -> dict[str, float]:
+    """Lateral head deflection of the FE pile alone (free head, 1 MN at the seabed) against
+    Matlock & Reese's closed form for a long elastic pile in soil whose modulus grows
+    linearly with depth (E_s = n_h·z): y = 2.435·H·T³/EI, T = (EI/n_h)^(1/5)
+    (Matlock & Reese 1960; valid for embedment ≥ 5T)."""
+    elems, springs, seg = _pile(0.0)
+    n_nodes = len(springs)
+    nodes = [np.array([0.0, 0.0, -k * seg]) for k in range(n_nodes)]
+    n = 6 * n_nodes
+    k = np.zeros((n, n))
+    for i1, i2, ea, ei, gj, ml, jm in elems:
+        ke, _ = _element(nodes[i1], nodes[i2], ea, ei, gj, ml, jm)
+        dofs = list(range(6 * i1, 6 * i1 + 6)) + list(range(6 * i2, 6 * i2 + 6))
+        k[np.ix_(dofs, dofs)] += ke
+    for node, lat, ax in springs:
+        k[6 * node, 6 * node] += lat
+        k[6 * node + 1, 6 * node + 1] += lat
+        k[6 * node + 2, 6 * node + 2] += ax
+    k[5, 5] += 1.0  # torsion is free in this check; one unit spring keeps K regular
+    f = np.zeros(n)
+    f[0] = 1.0e6
+    y = float(np.linalg.solve(k, f)[0])
+    ei = E_STEEL * _tube(PILE_D_M, PILE_T_M)[1]
+    t = (ei / SANDS["dense"][0]) ** 0.2
+    return {
+        "fe_m": y,
+        "closed_form_m": 2.435 * 1.0e6 * t**3 / ei,
+        "relative_stiffness_t_m": t,
+        "embedment_over_t": PILE_L_M / t,
+    }
+
+
+@lru_cache(maxsize=8)
+def _assemble(tower_elements_per_station: int = 2, soil: str = "clamped") -> _Assembly:
+    """Frame FE model of tower + jacket + RNA (module docstring); ``soil``: legs clamped at
+    the mudline as the reference model (``clamped``), on piles with p-y / t-z springs
+    (``dense`` / ``loose`` sand), the dense case also with local scour (``dense_scour``)."""
+    if soil not in SOIL_CASES:
+        raise ValueError(f"soil must be one of {SOIL_CASES}")
     # nodes: jacket joints (0..32), tower nodes after them
     nodes = [np.array(j) for j in JACKET_JOINTS]
     elems: list[tuple[int, int, float, float, float, float, float]] = []
@@ -288,6 +382,22 @@ def _assemble(tower_elements_per_station: int = 2) -> _Assembly:
             )
             prev = cur
     top = prev
+    n_above = len(elems)
+    springs: list[tuple[int, float, float]] = []
+    if soil != "clamped":
+        scour = SCOUR_OVER_D * PILE_D_M if soil.endswith("_scour") else 0.0
+        p_elems, p_springs, seg = _pile(scour, soil.removesuffix("_scour"))
+        for j in (18, 19, 20):  # each leg foot continues as a pile (its head node)
+            first = len(nodes)
+            nodes += [nodes[j] + np.array([0.0, 0.0, -k * seg]) for k in range(1, len(p_springs))]
+
+            def glob(k: int, j: int = j, first: int = first) -> int:
+                return j if k == 0 else first + k - 1
+
+            elems += [
+                (glob(a), glob(b), ea, ei, gj, ml, jm) for a, b, ea, ei, gj, ml, jm in p_elems
+            ]
+            springs += [(glob(k), lat, ax) for k, lat, ax in p_springs]
     n_dof = 6 * len(nodes)
     k_g = np.zeros((n_dof, n_dof))
     m_g = np.zeros((n_dof, n_dof))
@@ -300,8 +410,13 @@ def _assemble(tower_elements_per_station: int = 2) -> _Assembly:
         dof = list(range(6 * j, 6 * j + 6))
         m_g[np.ix_(dof, dof)] += np.diag([TP_MASS_KG] * 3 + list(TP_INERTIA))
     m_g[6 * top : 6 * top + 6, 6 * top : 6 * top + 6] += _rna_mass_matrix()
-    for j in (18, 19, 20):  # leg feet: clamped except a vertical soil spring
-        k_g[6 * j + 2, 6 * j + 2] += SOIL_KZZ
+    if soil == "clamped":
+        for j in (18, 19, 20):  # leg feet: clamped except a vertical soil spring
+            k_g[6 * j + 2, 6 * j + 2] += SOIL_KZZ
+    for node, lat, ax in springs:
+        k_g[6 * node, 6 * node] += lat
+        k_g[6 * node + 1, 6 * node + 1] += lat
+        k_g[6 * node + 2, 6 * node + 2] += ax
 
     # constraints: rigid TP — joints 1–6 slaved to the tower base node; feet fixed (not z)
     master = base
@@ -316,11 +431,12 @@ def _assemble(tower_elements_per_station: int = 2) -> _Assembly:
         )  # fmt: skip
         t_map[6 * j : 6 * j + 6, :] = rows
         slaves.extend(range(6 * j, 6 * j + 6))
-    fixed = [6 * j + d for j in (18, 19, 20) for d in (0, 1, 3, 4, 5)]
+    feet = (18, 19, 20) if soil == "clamped" else ()
+    fixed = [6 * j + d for j in feet for d in (0, 1, 3, 4, 5)]
     keep = [d for d in range(n_dof) if d not in slaves and d not in fixed]
     t_red = t_map[:, keep]
     m_above = np.zeros((n_dof, n_dof))
-    for i1, i2, ea, ei, gj, ml, jm in elems[len(JACKET_MEMBERS) :]:
+    for i1, i2, ea, ei, gj, ml, jm in elems[len(JACKET_MEMBERS) : n_above]:
         _, me = _element(nodes[i1], nodes[i2], ea, ei, gj, ml, jm)
         dofs = list(range(6 * i1, 6 * i1 + 6)) + list(range(6 * i2, 6 * i2 + 6))
         m_above[np.ix_(dofs, dofs)] += me
@@ -330,10 +446,12 @@ def _assemble(tower_elements_per_station: int = 2) -> _Assembly:
     )
 
 
-@lru_cache(maxsize=4)
-def jacket_modes(tower_elements_per_station: int = 2, n_modes: int = 6) -> Modes:
+@lru_cache(maxsize=8)
+def jacket_modes(
+    tower_elements_per_station: int = 2, n_modes: int = 6, soil: str = "clamped"
+) -> Modes:
     """Natural frequencies of the IEA 15 MW on the 50 m jacket (module docstring)."""
-    a = _assemble(tower_elements_per_station)
+    a = _assemble(tower_elements_per_station, soil)
     w2 = eigh(a.k_r, a.m_r, eigvals_only=True, subset_by_index=[0, n_modes - 1])
     freqs = tuple(float(math.sqrt(max(x, 0.0)) / (2 * math.pi)) for x in w2)
     f1 = freqs[0]
@@ -398,3 +516,27 @@ def fore_aft_mode() -> ForeAftMode:
         inertial_moment_kg_m=float(r_theta @ a.m_above @ phi),
         arm_m=hub_z - INTERFACE_Z,
     )
+
+
+def foundation_sensitivity() -> list[dict[str, float | str | bool]]:
+    """f1 of the turbine on the jacket for the three foundation models (audit 2.4)."""
+    clamped = jacket_modes().first_bending_hz
+    out: list[dict[str, float | str | bool]] = []
+    for soil, label in (
+        ("clamped", "Legs clamped at the mudline (reference model)"),
+        ("dense", "Piles in dense sand, p-y and t-z springs"),
+        ("dense_scour", "Piles in dense sand with local scour (S = 1.3 D)"),
+        ("loose", "Piles in loose sand, p-y and t-z springs"),
+    ):
+        m = jacket_modes(soil=soil)
+        out.append(
+            {
+                "case": label,
+                "first_bending_hz": m.first_bending_hz,
+                "change_pct": round((m.first_bending_hz / clamped - 1) * 100, 2),
+                "margin_to_1p": m.margin_to_1p,
+                "margin_to_3p": m.margin_to_3p,
+                "soft_stiff_ok": m.soft_stiff_ok,
+            }
+        )
+    return out

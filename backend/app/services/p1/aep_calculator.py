@@ -58,8 +58,11 @@ P90 = conservative estimate (90% chance of exceedance) — used for financing
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 
@@ -75,7 +78,42 @@ DEFAULT_PRICE_EUR_MWH: float = 72.0
 DEFAULT_ELECTRICAL_LOSS: float = 0.02  # 2.0%
 DEFAULT_AVAILABILITY_LOSS: float = 0.05  # 5.0%
 DEFAULT_ENVIRONMENTAL_LOSS: float = 0.01  # 1.0%
-DEFAULT_CURTAILMENT_LOSS: float = 0.0  # not assessed without a price / redispatch series
+
+
+@lru_cache(maxsize=1)
+def pse_curtailment(months: int = 12) -> dict[str, float | str]:
+    """Wind curtailment in Poland over the last ``months`` bundled months [%] (audit 2.1).
+
+    From PSE's open data (``scripts/fetch_pse_curtailment.py``): non-market redispatch of
+    wind for balance and network reasons (``poze-redoze``), and the potential wind energy in
+    quarter-hours with a negative RCE — lost by a farm that offers nothing at negative
+    prices (as the Market tab's SB-510). Each as a share of the potential wind energy
+    (generation + reductions); reductions inside negative-price quarters count once.
+    National wind is the proxy for SB-510: network redispatch is local, and northern Poland
+    is where it concentrates, so the network part is a lower bound for a northern farm."""
+    data = json.loads((Path(__file__).parent / "data" / "pse_curtailment.json").read_text("utf-8"))
+    keys = sorted(data["months"])[-months:]
+    rows = [data["months"][k] for k in keys]
+
+    def total(field: str) -> float:
+        return sum(float(r[field]) for r in rows)
+
+    red = total("red_balance_mwh") + total("red_network_mwh")
+    potential = total("wind_mwh") + red
+    negative = total("negative_price_potential_mwh") - total("red_in_negative_mwh")
+    return {
+        "period": f"{keys[0]} – {keys[-1]}",
+        "redispatch_balance_pct": 100 * total("red_balance_mwh") / potential,
+        "redispatch_network_pct": 100 * total("red_network_mwh") / potential,
+        "negative_price_pct": 100 * negative / potential,
+        "negative_price_hours": total("negative_price_quarters") / 4,
+        "total_pct": 100 * (red + negative) / potential,
+    }
+
+
+_PSE = pse_curtailment()
+_RED = float(_PSE["redispatch_balance_pct"]) + float(_PSE["redispatch_network_pct"])
+DEFAULT_CURTAILMENT_LOSS: float = round(float(_PSE["total_pct"]) / 100, 4)
 
 #: Horizons of the exceedance values [years]: 1 and 10 years (debt sizing), and the lifetime.
 P_HORIZONS_YEARS: tuple[int, ...] = (1, 10)
@@ -97,9 +135,11 @@ LOSS_SOURCES: dict[str, tuple[str, str]] = {
         "≈ 3.9 % of the year's energy (p2.annual_losses)",
     ),
     "curtailment": (
-        "illustrative",
-        "Not assessed: needs an hourly day-ahead price and PSE redispatch series (the farm "
-        "offers nothing at negative prices, see the Market tab); enter your own value",
+        "measured",
+        f"PSE open data {_PSE['period']}: wind redispatch {_RED:.1f} % (balance and network) "
+        f"+ negative-RCE hours {_PSE['negative_price_pct']:.1f} % "
+        f"({_PSE['negative_price_hours']:.0f} h), in which the farm offers nothing; national "
+        "wind as the proxy for SB-510",
     ),
     "availability": (
         "approximation",
@@ -394,7 +434,8 @@ def apply_loss_cascade(
     environmental_loss_fraction : float
         Environmental loss fraction. Default: 0.01 (1.0%).
     curtailment_loss_fraction : float
-        Market / grid curtailment fraction. Default: 0 (not assessed).
+        Market / grid curtailment fraction. Default: PSE's last 12 months
+        (``pse_curtailment``).
     provenance : dict | None
         (quality, source) per step that replaces ``LOSS_SOURCES`` — e.g. the electrical
         loss computed from the P2 load flow, the availability from failure rates.
@@ -476,7 +517,8 @@ def compute_aep_cascade(
     weibull_a, weibull_k, turbine_model : optional
         Wind and turbine of the farm for the components (default: SB-510).
     curtailment_loss_fraction : float
-        Market / grid curtailment fraction. Default: 0 (not assessed).
+        Market / grid curtailment fraction. Default: PSE's last 12 months
+        (``pse_curtailment``).
     provenance : dict | None
         (quality, source) per loss step for computed values (``apply_loss_cascade``).
     lifetime_years : int

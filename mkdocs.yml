@@ -30,6 +30,7 @@ theme:
 nav:
   - Home: index.md
   - Methods & References: references.md
+  - Model cards: model-cards.md
   - Engineering Standards: SKILL.md
   - Project Roadmap: Project_Roadmap.md
   - English:

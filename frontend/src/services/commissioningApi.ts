@@ -8,6 +8,7 @@ import type {
   ComplianceVerdict,
   EmergencyEvent,
   EmergencyProcedure,
+  EmtStudies,
   EnergisationEmt,
   EnergisationEmtParams,
   EnergisationTrace,
@@ -38,6 +39,8 @@ export const getEnergisationTrace = () => request<EnergisationTrace>(`${BASE}/en
  * EMT of closing CB-ON-220-01 onto export cable 1 and its line reactor: zero-missing,
  * DC/AC ratio, switching overvoltage at the open OSS end and the phase-a waveforms.
  */
+export const getEmtStudies = () => request<EmtStudies>(`${BASE}/energisation/emt-studies`);
+
 export const getEnergisationEmt = (p: EnergisationEmtParams) =>
   request<EnergisationEmt>(
     `${BASE}/energisation/emt?closing_angle_deg=${p.closingAngleDeg}&pole_scatter_ms=${p.poleScatterMs}` +

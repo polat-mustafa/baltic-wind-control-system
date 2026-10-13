@@ -330,6 +330,10 @@ export default {
   "Limiting section": "Sınırlayan bölüm",
   "Datasheet rating": "Katalog kapasitesi",
   "Hottest conductor, 30-year hindcast": "En sıcak iletken, 30 yıllık geçmiş veri",
+  "IEC 60287-1-1 / -2-1 steady-state rating per section; export cable T2 calibrated to the datasheet ({n} K·m/W); verified against {name}. Load profile: full-farm current through the 30-year wind hindcast with each section's thermal time constant.":
+    "Bölüm başına IEC 60287-1-1 / -2-1 sürekli akım değeri; ihracat kablosunun T2'si veri sayfasına kalibre edildi ({n} K·m/W); {name} ile doğrulandı. Yük profili: tam santral akımı, her bölümün ısıl zaman sabitiyle 30 yıllık rüzgâr geçmiş verisi boyunca.",
+  "IEC 60853-2 cyclic rating factor of the subsea section: M = {n1} for six hours at full output after the 30-year mean loss-load factor μ = {n2} — indicative, as wind has no daily cycle; the hourly hindcast above is the governing check.":
+    "Deniz altı bölümünün IEC 60853-2 çevrimsel akım faktörü: 30 yıllık ortalama kayıp-yük faktörü μ = {n2} sonrasında altı saat tam güç için M = {n1} — rüzgârın günlük çevrimi olmadığından yol gösterici; belirleyici kontrol yukarıdaki saatlik geçmiş veridir.",
   "Method check: CIGRE TB 880 case 0-1": "Yöntem doğrulaması: CIGRE TB 880 durum 0-1",
   "Installation": "Döşeme",
   "Ambient [°C]": "Ortam [°C]",

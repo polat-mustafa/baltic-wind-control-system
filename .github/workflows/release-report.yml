@@ -1,0 +1,35 @@
+name: Release validation report
+
+# Attaches the validation report (Evidence rows + model cards + engineering audit, PDF) to
+# every published release — backend/scripts/validation_report.py.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the report to"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install markdown==3.10.2
+      - name: Build report
+        id: build
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          python backend/scripts/validation_report.py "$TAG" dist
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ steps.build.outputs.tag }}" dist/*.pdf dist/*.html --clobber

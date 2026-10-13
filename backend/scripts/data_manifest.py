@@ -30,6 +30,7 @@ PROVENANCE: dict[str, tuple[str, str]] = {
     ),
     "IEA-22-280-RWT.csv": ("app/services/p1/turbine_models.py", "scripts/fetch_turbine_curves.py"),
     "turbines.json": ("app/services/p1/turbine_models.py", "scripts/fetch_turbine_curves.py"),
+    "LICENSE-Apache-2.0.txt": ("../DATA_LICENSES.md", "(apache.org licence text)"),
     "care_farm_b.json": (
         "app/services/digital_twin/care_benchmark.py",
         "scripts/build_care_benchmark.py",

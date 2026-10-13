@@ -114,6 +114,14 @@ test("walk every page", async ({ context }) => {
   console.log(CHECK ? `not recorded (${missing.size}):\n${[...missing].sort().join("\n")}` : `${written.size} files in ${OUT}/`);
 });
 
+/** The public demo keeps the traffic picture but not who the vessels are: names replaced,
+ *  MMSI replaced by a running number (real AIS identities stay in the live full version). */
+function anonymiseAis(body: unknown): string {
+  const ais = body as { vessels?: { mmsi: number; name: string }[] };
+  ais.vessels?.forEach((v, i) => Object.assign(v, { mmsi: 900_000_001 + i, name: `Vessel ${i + 1}` }));
+  return JSON.stringify(ais);
+}
+
 async function instrument(context: BrowserContext, missing: Set<string>, written: Set<string>) {
   if (CHECK) {
     context.on("response", (res) => {
@@ -135,13 +143,14 @@ async function instrument(context: BrowserContext, missing: Set<string>, written
     await route.fulfill({ response: res, body: text }).catch(() => undefined);
     const file = demoFile(req.method(), url.pathname + url.search, req.postData());
     if (!res.ok() || written.has(file)) return;
+    let body: unknown;
     try {
-      JSON.parse(text);
+      body = JSON.parse(text);
     } catch {
       return; // not JSON (a file download): the demo cannot replay it
     }
     written.add(file);
-    writeFileSync(`${OUT}/${file}`, text);
+    writeFileSync(`${OUT}/${file}`, url.pathname.endsWith("/info/ais") ? anonymiseAis(body) : text);
     if (VERBOSE) console.log(`    ${file}`);
   });
 }

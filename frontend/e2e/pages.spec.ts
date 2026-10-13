@@ -121,7 +121,7 @@ for (const [name, path] of ROUTES) {
       await open(page, path, theme);
       await page.waitForTimeout(1500); // a run may start after a first status call (Forecast: model cache)
       await page
-        .waitForFunction(() => !/Running|Queued/.test(document.body.innerText), null, { timeout: 150_000, polling: 500 })
+        .waitForFunction(() => !/Running|Queued|simulating/.test(document.body.innerText), null, { timeout: 150_000, polling: 500 })
         .catch(() => undefined);
       for (const text of READY[name] ?? []) await expect(page.getByText(text)).toBeVisible({ timeout: 150_000 });
       await page.waitForLoadState("networkidle").catch(() => undefined);

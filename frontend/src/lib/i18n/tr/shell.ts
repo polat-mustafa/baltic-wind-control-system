@@ -344,6 +344,8 @@ export default {
   "Open the control room": "Kontrol odasını aç",
   "SCADA and the other operation modules": "SCADA ve diğer işletme modülleri",
   "Running...": "Çalışıyor...",
+  "Running…": "Çalışıyor…",
+  "Running… (≈ {n} min)": "Çalışıyor… (≈ {n} dk)",
   "Grid Analysis — Pandapower + IEC 60909": "Şebeke Analizi — Pandapower + IEC 60909",
   "Load flow in four cases: voltages, loadings, losses": "Dört durumda yük akışı: gerilimler, yüklenmeler, kayıplar",
   "Reactive power: cable charging, reactors, PSE Q range": "Reaktif güç: kablo şarjı, reaktörler, PSE Q aralığı",

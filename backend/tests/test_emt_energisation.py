@@ -87,3 +87,15 @@ def test_point_on_wave_or_pre_insertion_resistor_cures_it():
     # the resistor also damps the switching overvoltage
     base = simulate_energisation(closing_angle_deg=0.0, duration_s=0.5)
     assert pir.peak_far_end_pu < base.peak_far_end_pu
+
+
+def test_endpoint_returns_scalars_the_ui_formats():
+    """The panel calls .toFixed on these: one number (the worst pole), not a per-pole list."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    body = TestClient(app).get("/api/v1/commissioning/energisation/emt").json()
+    assert isinstance(body["dc_over_ac"], float)
+    assert isinstance(body["zero_missing_ms"], float)
+    assert body["dc_over_ac"] > 1.0 and body["zero_missing"]

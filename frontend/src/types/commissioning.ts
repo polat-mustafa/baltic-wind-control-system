@@ -305,3 +305,40 @@ export interface EnergisationEmt {
   reactor_current_a: number[];
   far_end_voltage_kv: number[];
 }
+
+// ── EMT studies (GET /commissioning/energisation/emt-studies) ──
+
+export interface InsulationRow {
+  insulation: string;
+  required_sdwv_kv: number;
+  required_liwv_kv: number;
+  margin_sdwv: number;
+  margin_liwv: number;
+  ok: boolean;
+}
+
+export interface EmtStudies {
+  /** IEC 60071-2 from the statistics of 30 energisations (phase-peak method). */
+  insulation_coordination: {
+    switching: { closings: number; phase_peaks_pu: number[]; max_pu: number; ue2_pu: number; uet_pu: number };
+    urp_kv: number;
+    urw_kv: number;
+    rated_sdwv_kv: number;
+    rated_liwv_kv: number;
+    equipment: InsulationRow[];
+    ok: boolean;
+  };
+  /** Onshore 400/220 kV transformer energised from the 400 kV grid. */
+  inrush: {
+    first_peak_a: number;
+    first_peak_pu_of_rated: number;
+    rated_peak_a: number;
+    specht_peak_a: number;
+    second_harmonic_ratio: number;
+    peak_after_s_a: number;
+    time_ms: number[];
+    current_a: number[];
+  };
+  /** Overvoltage at the open OSS end after a cleared onshore busbar fault. */
+  tov: { steady_far_end_pu: number; peak_after_clearing_pu: number; peak_after_clearing_kv: number; fault_duration_ms: number };
+}

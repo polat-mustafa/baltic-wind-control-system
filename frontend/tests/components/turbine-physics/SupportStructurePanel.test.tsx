@@ -25,6 +25,10 @@ const modes: SupportStructure = {
   margin_to_3p: 0.125,
   required_margin: 0.1,
   source: "3D Euler-Bernoulli frame FE; reference 0.221 Hz from DEME's OpenFAST free decay",
+  foundation: [
+    { case: "Legs clamped at the mudline (reference model)", first_bending_hz: 0.2236, change_pct: 0, margin_to_1p: 0.775, margin_to_3p: 0.106, soft_stiff_ok: true },
+    { case: "Piles in dense sand, p-y and t-z springs", first_bending_hz: 0.2383, change_pct: 6.57, margin_to_1p: 0.891, margin_to_3p: 0.047, soft_stiff_ok: false },
+  ],
 };
 
 beforeEach(() => {
@@ -44,5 +48,12 @@ describe("SupportStructurePanel", () => {
     expect(screen.getByText("12.5")).toBeTruthy();
     expect(screen.getByText("0.221 Hz (-1.0 %)")).toBeTruthy();
     expect(screen.getByText(modes.source)).toBeTruthy();
+  });
+
+  it("lists the foundation cases and flags a 3P margin below the required one", async () => {
+    render(<SupportStructurePanel />);
+    expect(await screen.findByText("Piles in dense sand, p-y and t-z springs")).toBeTruthy();
+    expect(screen.getByText("4.7").className).toContain("text-status-alarm");
+    expect(screen.getByText("10.6").className).not.toContain("text-status-alarm");
   });
 });

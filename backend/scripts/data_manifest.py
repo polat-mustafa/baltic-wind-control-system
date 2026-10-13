@@ -100,7 +100,8 @@ def data_files() -> list[Path]:
         and {"data", "validation_data"} & set(p.relative_to(BACKEND).parts)
         and "__pycache__" not in p.parts
     ]
-    return sorted(files)
+    # Sort by POSIX string: Windows Path ordering is case-insensitive, Linux's is not.
+    return sorted(files, key=lambda p: p.relative_to(BACKEND).as_posix())
 
 
 def _canonical_bytes(p: Path) -> bytes:

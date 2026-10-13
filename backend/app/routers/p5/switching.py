@@ -319,8 +319,8 @@ async def energisation_emt(
     n = round(0.3 / DT_S)
     return {
         "closing_times_ms": r.closing_times_ms,
-        "dc_over_ac": r.dc_over_ac,
-        "zero_missing_ms": r.zero_missing_ms,
+        "dc_over_ac": max(r.dc_over_ac),  # worst pole
+        "zero_missing_ms": max(r.zero_missing_ms),
         "zero_missing": r.zero_missing,
         "peak_far_end_pu": r.peak_far_end_pu,
         "steady_far_end_pu": r.steady_far_end_pu,
@@ -330,3 +330,18 @@ async def energisation_emt(
         "reactor_current_a": [round(float(x), 1) for x in r.reactor_current_a[0, :n:every]],
         "far_end_voltage_kv": [round(float(x), 2) for x in r.far_end_voltage_kv[0, :n:every]],
     }
+
+
+@router.get("/energisation/emt-studies", summary="EMT: insulation co-ordination, inrush, TOV")
+async def energisation_emt_studies() -> dict[str, object]:
+    """IEC 60071-2 insulation co-ordination from the statistics of 30 energisations of cable 1
+    (``emt_studies``), the inrush of an onshore 400/220 kV transformer (checked against
+    Specht's closed form) and the overvoltage after a cleared onshore busbar fault."""
+    import asyncio
+
+    from app.services.p5 import emt_studies as es
+
+    coordination = await asyncio.to_thread(es.insulation_coordination)
+    inrush = await asyncio.to_thread(es.simulate_inrush)
+    tov = await asyncio.to_thread(es.tov_after_fault_clearing)
+    return {"insulation_coordination": coordination, "inrush": inrush, "tov": tov}

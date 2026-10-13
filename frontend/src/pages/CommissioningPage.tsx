@@ -28,6 +28,7 @@ import EmergencyTab from "../components/p5/EmergencyTab";
 import AuditTrail from "../components/p5/AuditTrail";
 import EnergisationReplay from "../components/p5/EnergisationReplay";
 import BalticPowerPanel from "../components/p5/BalticPowerPanel";
+import EmtStudiesPanel from "../components/p5/EmtStudiesPanel";
 import EnergisationEmtPanel from "../components/p5/EnergisationEmtPanel";
 import { PageHeader } from "../components/layout/PageHeader";
 import { PageTabs, type PageTab } from "../components/layout/PageTabs";
@@ -276,6 +277,7 @@ export default function CommissioningPage() {
         <>
           <ProgrammeList />
           <EnergisationEmtPanel />
+          <EmtStudiesPanel />
           <BalticPowerPanel />
         </>
       ) : (
@@ -287,6 +289,7 @@ export default function CommissioningPage() {
             <>
               <SwitchingTab programme={active} onGoto={setTab} />
               <EnergisationEmtPanel />
+              <EmtStudiesPanel />
             </>
           )}
           {tab === "isolation" && <IsolationTab programme={active} />}

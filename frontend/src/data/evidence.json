@@ -50,6 +50,19 @@
    "tolerance": 0.3
   },
   {
+   "id": "lc-om-wombat",
+   "area": "Lifecycle — O&M",
+   "kind": "reference",
+   "claim": "Fleet O&M replay: energy-based availability of SB-510 over the 30-year hindcast (2 CTVs × 3 crews, jack-up)",
+   "against": "NREL WOMBAT 0.13.4 with the same failure rates, vessels, limits and weather",
+   "metric": "WOMBAT − app, energy-based availability",
+   "value": 2.2228,
+   "unit": "pp",
+   "limit": "0 … 3 pp (WOMBAT has no response delay)",
+   "test": "backend/tests/test_wombat_cross_check.py",
+   "tolerance": 0.3
+  },
+  {
    "id": "p1-aep-roedsand2-28m-r2",
    "area": "P1 — wind resource",
    "kind": "measured",
@@ -503,6 +516,18 @@
    "test": "backend/tests/test_emt_energisation.py"
   },
   {
+   "id": "p5-emt-inrush-specht",
+   "area": "P5 — commissioning",
+   "kind": "analytic",
+   "claim": "Transformer inrush (two-slope saturation, flux-linkage integration)",
+   "against": "Specht's closed-form first inrush peak (AIEE Trans. 70, 1951)",
+   "metric": "simulated / closed-form first peak",
+   "value": 1.0001,
+   "unit": "–",
+   "limit": "= 1 ± 0.01",
+   "test": "backend/tests/test_emt_studies.py"
+  },
+  {
    "id": "p5-emt-ringing",
    "area": "P5 — commissioning",
    "kind": "analytic",
@@ -573,6 +598,18 @@
    "value": 0.2236,
    "unit": "Hz",
    "limit": "= 0.221 Hz ± 3 %",
+   "test": "backend/tests/test_support_structure.py"
+  },
+  {
+   "id": "ts-pile-matlock-reese",
+   "area": "Turbine physics — structure",
+   "kind": "analytic",
+   "claim": "Jacket pile on API p-y springs (frame FE, foundation sensitivity)",
+   "against": "Matlock & Reese (1960) long-pile head deflection, linearly increasing modulus",
+   "metric": "FE / closed-form head deflection",
+   "value": 1.0142,
+   "unit": "–",
+   "limit": "= 1 ± 0.03",
    "test": "backend/tests/test_support_structure.py"
   },
   {

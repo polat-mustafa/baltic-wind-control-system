@@ -117,6 +117,8 @@ export interface RouteRatingResponse {
   sections: RouteSection[];
   hdd_options: HddOption[];
   load_profile: SectionLoadProfile[];
+  /** IEC 60853-2 cyclic factor of the subsea section: 6 h at full output after the hindcast's mean μ. */
+  subsea_cyclic: { loss_load_factor: number; cyclic_factor_m: number };
   datasheet_rating_a: number;
   calibrated_t2_k_m_w: number;
   verification: { case: string; rating_a: number; reference_a: number };

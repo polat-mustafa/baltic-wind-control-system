@@ -52,6 +52,7 @@ REACTOR_XR = 400.0  # typical EHV shunt reactor quality factor (losses ≈ 0.25 
 SOURCE_XR = 15.0
 R_PIR_OHM = 400.0  # pre-insertion resistor of the breaker
 T_PIR_S = 0.010  # inserted for half a cycle before the main contacts close
+R_FAULT_OHM = 0.1  # bolted fault at the onshore busbar (TOV study)
 
 
 @dataclass(frozen=True)
@@ -91,12 +92,15 @@ def simulate_energisation(
     duration_s: float = 1.0,
     spec: FarmSpec = SB510,
     length_km: float | None = None,
+    fault_window_s: tuple[float, float] | None = None,
 ) -> EnergisationResult:
     """Energise one export circuit from shore, far end open.
 
     ``closing_angle_deg``: phase-a source-voltage angle at the first pole's closing (0 = a
     voltage zero, the worst case for the reactor's DC offset; 90 = a voltage peak, the
     point-on-wave remedy). ``pole_scatter_ms``: mechanical scatter of the three poles.
+    ``fault_window_s``: a bolted three-phase fault (``R_FAULT_OHM``) at the onshore busbar
+    between these instants (``emt_studies`` TOV after fault clearing).
     """
     length = spec.export_length_km if length_km is None else length_km
     cab = EXPORT_CABLE_1000
@@ -131,8 +135,12 @@ def simulate_energisation(
         i_r = 0.0
         v = np.zeros(n_nodes)
 
-        def matrix(closed: bool, r_brk: float) -> tuple[np.ndarray, float, float, float]:
+        def matrix(
+            closed: bool, r_brk: float, faulted: bool
+        ) -> tuple[np.ndarray, float, float, float]:
             g = np.zeros((n_nodes, n_nodes))
+            if faulted:
+                g[0, 0] += 1.0 / R_FAULT_OHM
             # source branch: E – R_src – L_src → node 0, companion: series R+L
             g_src = 1.0 / (r_src + 1.0 / g_l)
             g[0, 0] += g_src
@@ -157,8 +165,10 @@ def simulate_energisation(
             g[1, 1] += g_rct
             return g, g_src, g_rl, g_rct
 
-        mats: dict[tuple[bool, float], tuple[Any, ...]] = {}
+        mats: dict[tuple[bool, float, bool], tuple[Any, ...]] = {}
+        fault_on = False  # the fault branch conducts until its current crosses zero
         hist_c = np.zeros(n_nodes)  # capacitor history currents (node to ground)
+        v_prev2_bus = 0.0
         v_prev = np.zeros(n_nodes)
         e_prev = 0.0
         for k in range(steps):
@@ -166,9 +176,15 @@ def simulate_energisation(
             closed = tk >= close_t[ph]
             pir = pre_insertion and closed and tk < close_t[ph] + T_PIR_S
             r_brk = R_PIR_OHM if pir else 1e-3
-            key = (closed, r_brk)
+            if fault_window_s is not None:
+                if not fault_on and fault_window_s[0] <= tk < fault_window_s[1]:
+                    fault_on = True
+                elif fault_on and tk >= fault_window_s[1] and v_prev[0] * v_prev2_bus <= 0:
+                    fault_on = False  # the breaker interrupts at a current zero
+            faulted = fault_on
+            key = (closed, r_brk, faulted)
             if key not in mats:
-                g, g_src, g_rl, g_rct = matrix(closed, r_brk)
+                g, g_src, g_rl, g_rct = matrix(closed, r_brk, faulted)
                 mats[key] = (lu_factor(g), g_src, g_rl, g_rct)
             lu, g_src, g_rl, g_rct = mats[key]
             e = u_peak * math.sin(OMEGA * tk + shift)
@@ -209,6 +225,7 @@ def simulate_energisation(
             i_rct[ph, k] = i_r
             v_far[ph, k] = v[far]
             v_bus[ph, k] = v[0]
+            v_prev2_bus = v_prev[0]
             v_prev, e_prev = v, e
 
     # Zero-missing: the breaker current's 50 Hz amplitude against its DC offset, in sliding

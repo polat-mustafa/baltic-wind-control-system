@@ -20,6 +20,7 @@ import math
 import pytest
 
 from app.services.p1.aep_calculator import (
+    DEFAULT_CURTAILMENT_LOSS,
     DEFAULT_UNCERTAINTY_SOURCES,
     AEPCascadeResult,
     LayoutComparisonResult,
@@ -29,8 +30,12 @@ from app.services.p1.aep_calculator import (
     compute_aep_cascade,
     compute_exceedance_values,
     compute_rss_uncertainty,
+    pse_curtailment,
     uncertainty_components,
 )
+
+#: the default curtailment step (PSE, last 12 months) — targets below are before it
+CURTAIL = 1.0 - DEFAULT_CURTAILMENT_LOSS
 
 # ── RSS Uncertainty Tests ─────────────────────────────────────────
 
@@ -133,7 +138,7 @@ class TestLossCascade:
         net, _ = apply_loss_cascade(gross, 0.087, 0.02, 0.02, 0.05, 0.01)
 
         # Verify it's multiplicative
-        expected = gross * 0.913 * 0.98 * 0.98 * 0.95 * 0.99
+        expected = gross * 0.913 * 0.98 * 0.98 * 0.95 * 0.99 * CURTAIL
         assert net == pytest.approx(expected, rel=1e-4)
 
         # Verify it's NOT additive
@@ -143,7 +148,7 @@ class TestLossCascade:
     def test_zero_losses_return_gross(self):
         """With all losses at 0, net should equal gross."""
         gross = 2500.0
-        net, _ = apply_loss_cascade(gross, 0.0, 0.0, 0.0, 0.0, 0.0)
+        net, _ = apply_loss_cascade(gross, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         assert net == pytest.approx(gross, rel=1e-6)
 
     def test_loss_factors_list_has_six_entries(self):
@@ -170,7 +175,8 @@ class TestLossCascade:
         assessed = [f for f in factors if f.name != "curtailment"]
         assert all(f.source and f.quality in {"literature", "approximation"} for f in assessed)
         curtail = factors[-1]
-        assert curtail.loss_percent == 0.0 and curtail.source.startswith("Not assessed")
+        assert curtail.quality == "measured" and curtail.source.startswith("PSE open data")
+        assert curtail.loss_percent == pytest.approx(DEFAULT_CURTAILMENT_LOSS * 100)
         _, factors = apply_loss_cascade(2340.0, 0.087, 0.02, availability_loss_fraction=0.03)
         avail = next(f for f in factors if f.name == "availability")
         assert (avail.quality, avail.source) == ("illustrative", "Your input")
@@ -187,7 +193,7 @@ class TestLossCascade:
         2340 × 0.913 × 0.98 × 0.98 × 0.95 × 0.99 ≈ 1930
         """
         net, _ = apply_loss_cascade(2340.0, 0.087, 0.02)
-        assert 1880 < net < 1980, f"Net AEP = {net:.0f} GWh"
+        assert 1880 * CURTAIL < net < 1980 * CURTAIL, f"Net AEP = {net:.0f} GWh"
 
 
 # ── Full AEP Cascade Tests ───────────────────────────────────────
@@ -228,7 +234,8 @@ class TestAEPCascade:
         ~1930 GWh × 1000 × €72 / 1e6 ≈ 139.0 M€
         """
         result = compute_aep_cascade(2340.0, 0.087, 0.02, price_eur_mwh=72.0)
-        assert 130 < result.revenue_meur < 150, f"Revenue = {result.revenue_meur:.1f} M€"
+        lo, hi = 130 * CURTAIL, 150 * CURTAIL
+        assert lo < result.revenue_meur < hi, f"Revenue = {result.revenue_meur:.1f} M€"
 
     def test_total_loss_positive(self):
         """Total loss should be positive with positive loss factors."""
@@ -369,7 +376,7 @@ class TestLayoutComparison:
         layouts = [("Regular", 2340.0, 0.127, 0.02)]
         result = compare_layouts(layouts)
         net = result.results[0][1].net_aep_gwh
-        assert 1790 < net < 1900, f"Regular net AEP = {net:.0f} GWh"
+        assert 1790 * CURTAIL < net < 1900 * CURTAIL, f"Regular net AEP = {net:.0f} GWh"
 
     def test_staggered_layout_net_aep_target(self):
         """Staggered (9.8% wake loss): net AEP ~1907 GWh.
@@ -379,7 +386,7 @@ class TestLayoutComparison:
         layouts = [("Staggered", 2340.0, 0.098, 0.02)]
         result = compare_layouts(layouts)
         net = result.results[0][1].net_aep_gwh
-        assert 1850 < net < 1960, f"Staggered net AEP = {net:.0f} GWh"
+        assert 1850 * CURTAIL < net < 1960 * CURTAIL, f"Staggered net AEP = {net:.0f} GWh"
 
     def test_optimized_layout_net_aep_target(self):
         """Optimized (8.7% wake loss): net AEP ~1930 GWh.
@@ -389,7 +396,7 @@ class TestLayoutComparison:
         layouts = [("Optimized", 2340.0, 0.087, 0.02)]
         result = compare_layouts(layouts)
         net = result.results[0][1].net_aep_gwh
-        assert 1880 < net < 1980, f"Optimized net AEP = {net:.0f} GWh"
+        assert 1880 * CURTAIL < net < 1980 * CURTAIL, f"Optimized net AEP = {net:.0f} GWh"
 
 
 def test_uncertainty_api_and_cascade_components():
@@ -416,3 +423,14 @@ def test_uncertainty_api_and_cascade_components():
         ).status_code
         == 422
     )
+
+
+def test_pse_curtailment_from_bundled_months():
+    """Redispatch (balance + network) and negative-price shares add up to the default; the
+    totals sit in the range PSE's data shows for 2024–2026 (a few per cent)."""
+    c = pse_curtailment()
+    parts = c["redispatch_balance_pct"] + c["redispatch_network_pct"] + c["negative_price_pct"]
+    assert parts == pytest.approx(c["total_pct"])
+    assert 1.0 < c["total_pct"] < 15.0
+    assert 0 < c["negative_price_hours"] < 8760
+    assert pytest.approx(c["total_pct"] / 100, abs=1e-4) == DEFAULT_CURTAILMENT_LOSS

@@ -65,6 +65,13 @@
    "produced_by": "scripts/process_cmems.py"
   },
   {
+   "path": "app/services/p1/data/pse_curtailment.json",
+   "bytes": 5934,
+   "sha256": "d2d541a47556c0708a6d0d41fc07e255bd39815f3b3e33b85b4ee34b31051c57",
+   "documented_in": "app/services/p1/aep_calculator.py",
+   "produced_by": "scripts/fetch_pse_curtailment.py"
+  },
+  {
    "path": "app/services/p1/validation_data/pywake/Hornsrev1_LES_WFeff.dat",
    "bytes": 1023,
    "sha256": "e490650495c3c6fe0683dc2a1255d03e1d1db74e36c0592428c0375341d3c12f",

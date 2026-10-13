@@ -40,8 +40,7 @@ Bunlar "10/10" için şart; kendi kendine sertifikalanamaz.
   İndirme Claude'un ağından mümkün olmadı; sen indirip `backend/app/services/p1/validation_data/`
   altına koy, `scripts/data_manifest.py` çalıştır.
 - **Baltica 2** ENTSO-E'de üretim verisi yayımlandığında (planlı) ikinci AEP doğrulama sahası.
-- **PSE kısıtlama (curtailment) verisi:** saatlik gün öncesi fiyat + PSE redispatch serileri.
-  Bunlar gelince AEP zincirindeki "Not assessed (0 %)" adımı hesaplanabilir (bkz. 2.1).
+- ~~PSE kısıtlama verisi~~ — PSE açık API'sinden alındı (bkz. 2.1).
 - **Gerçek dönüştürücü modeli:** bir OEM'den (Vestas/SGRE/GE) ya da bir TSO çalışmasından
   dönüştürücü empedans/admitans verisi; şu an `harmonic_stability.py` tipik değerler kullanıyor.
 
@@ -61,9 +60,12 @@ Bunlar "10/10" için şart; kendi kendine sertifikalanamaz.
 
 Öncelik sırasıyla. Her madde kendi doğrulama testiyle gelmeli (denetim belgesi §6 kuralı).
 
-### 2.1 AEP — kısıtlama (curtailment) kaybı
-- Veri (1.3) gelince: negatif fiyat saatleri + PSE redispatch → yıllık kayıp yüzdesi;
-  `aep_calculator.py` `curtailment` adımını "computed" yap. Test: el hesabı.
+### 2.1 AEP — kısıtlama kaybı — YAPILDI (13 Ekim)
+- PSE açık API'sinde veri varmış: `poze-redoze` (rüzgâr yeniden dağıtımı, denge/şebeke),
+  `his-wlk-cal`, `rce-pln`. `scripts/fetch_pse_curtailment.py` → aylık toplamlar (Eki 2024 –
+  Eyl 2026). Son 12 ay: %6.4 = yeniden dağıtım %3.1 + negatif RCE saatleri %3.4 (340 sa).
+  Kalan: SB-510 düğümüne özgü şebeke kısıtı (ulusal rüzgâr vekil olarak kullanılıyor);
+  veriyi yıllık tazelemek için betiği yeniden çalıştır.
 
 ### 2.2 EMT — YAPILDI (13 Ekim, `services/p5/emt_studies.py`)
 - Trafo ani akımı (iki eğimli doyma; Specht kapalı formu ile 1.0001), arıza sonrası TOV

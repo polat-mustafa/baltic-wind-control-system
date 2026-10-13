@@ -66,6 +66,10 @@ PROVENANCE: dict[str, tuple[str, str]] = {
         "scripts/fetch_validation_farms.py",
     ),
     "entsoe_units.json": ("app/services/p4/real_data.py", "scripts/fetch_entsoe_units.py"),
+    "pse_curtailment.json": (
+        "app/services/p1/aep_calculator.py",
+        "scripts/fetch_pse_curtailment.py",
+    ),
     "baltic_power_energisation.json": (
         "app/routers/p5/real_data.py",
         "scripts/fetch_entsoe_units.py",

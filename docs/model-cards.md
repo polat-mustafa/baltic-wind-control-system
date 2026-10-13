@@ -33,7 +33,7 @@ Status: 13 October 2026. Open items are tracked in `docs/engineering-audit-2026-
 | **Verification** | Evidence `p1-turbopark-orsted`: TurbOPark equals Ørsted's reference code (max 0.0003 %). `p1-wake-floris`: farm wake loss of three model pairs within 0.42 pp of NREL FLORIS 4.2.1 |
 | **Validation** | Rødsand II metered output (ENTSO-E 16.1.A), ERA5-driven chain: annual bias +1.1 % (`p1-aep-roedsand2-bias`), monthly R² 0.956, 28-month R² 0.951, worst year +5.0 %, hourly RMSE 16.8 % of capacity. Horns Rev 1 + Lillgrund row ratios: RMSE 0.083 (BPA), 0.097 (TurbOPark), 0.116 (NOJ) |
 | **Uncertainty** | Wind resource, long-term, future variability, wake, turbine, non-wake components (RSS); P90 at 1 / 10 years and lifetime |
-| **Known limits** | No on-site measurement or MCP; blockage is an engineering scaling, not a flow solution; curtailment is shown as *not assessed* (no PSE redispatch / negative-price data); no wake steering |
+| **Known limits** | No on-site measurement or MCP; blockage is an engineering scaling, not a flow solution; curtailment (6.4 %: PSE wind redispatch 3.1 % + negative-RCE hours 3.4 %, last 12 months) uses national wind as the proxy for SB-510 and assumes the farm offers nothing at negative prices; no wake steering |
 
 ## P2 — HV grid: load flow, short circuit, cables
 

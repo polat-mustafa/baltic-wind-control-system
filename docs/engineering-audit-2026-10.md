@@ -29,7 +29,7 @@ frontend typecheck and lint clean, **681 / 681** vitest tests passed. Playwright
 > **Status, 12 October 2026:** the plan in §6 has been carried out as far as one session can
 > take it. Every H and M finding (F1–F9) is closed or reduced to a stated, quantified limit;
 > §8 lists what was built, how each piece is checked, the numbers it now gives, and what is
-> still open (external review, OpenFAST/WOMBAT/FLORIS cross-runs, a few sub-studies).
+> still open (OpenFAST cross-runs, a few sub-studies; journal publication and external review were dropped on 13 October — see C-6).
 
 ## 2. Retracted claims from the first review
 
@@ -226,7 +226,7 @@ loads, structures, EMT, cable rating and earth faults are the largest gaps.
 2. every output has an independent check (measured data, hand calculation, reference code or a
    standard's verification case) with a stated tolerance, run in CI;
 3. there are no open findings of severity H or M;
-4. an external review by domain experts has been carried out.
+4. ~~an external review by domain experts has been carried out~~ — dropped on 13 October: the platform is not a scientific publication (C-6).
 
 The last item cannot be self-certified. Effort is in person-weeks (pw).
 
@@ -329,8 +329,8 @@ means not done in this round, with the reason.
 | C-2 | pandapower vs OpenDSS: the dispatched 72-bus SB-510 network re-solved in EPRI OpenDSS agrees within 8 × 10⁻⁵ pu on every bus, grid P within 0.01 MW and Q within 0.05 Mvar at 100 / 50 / 0 % output (`c2_opendss_load_flow.py`; ✔︎ `p2-loadflow-opendss`, runs in CI). PyWake vs FLORIS 4.2.1 on the SB-510 layout (TI 6 %, site Weibull): farm wake loss Jensen 6.72 vs 6.55 %, TurbOPark 10.49 vs 10.92 % (FLORIS `turboparkgauss`; its older `turbopark` gives 9.38 %), Gaussian 7.09 vs 6.88 % (`c2_floris_wakes.py`; ✔︎ `p1-wake-floris`, local — FLORIS is not a CI dependency). Open: app turbine vs OpenFAST |
 | C-3 | Open: further measured datasets (owner's to-do: FINO2, Baltica 2 on ENTSO-E) |
 | C-4 | [Model cards](model-cards.md) for every module (13 Oct): purpose, assumptions, validity range, verification, validation, uncertainty and known limits in ASME V&V 10 / 20 terms; the digital twin card notes DNV-RP-A204 (no third-party qualification) |
-| C-5 | `CITATION.cff`; SHA-256 manifest of all 49 bundled datasets with provenance (`backend/data_manifest.json`, enforced by `tests/test_data_manifest.py`). Zenodo DOI and a per-release PDF report are release-time actions for the owner |
-| C-6 | Open: JOSS / methods paper and external review — cannot be self-certified |
+| C-5 | `CITATION.cff`; SHA-256 manifest of all 49 bundled datasets with provenance (`backend/data_manifest.json`, enforced by `tests/test_data_manifest.py`). A validation report PDF is attached to each release by `release-report.yml`; no Zenodo DOI (dropped 13 Oct) |
+| C-6 | Dropped (13 Oct): OffshoreForge is a training and engineering platform, not a scientific publication — no journal paper, DOI or external review is planned |
 
 ## How to reproduce
 

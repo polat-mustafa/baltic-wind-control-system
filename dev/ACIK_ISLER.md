@@ -12,30 +12,12 @@ birleştirildi. Backend 1 496 test, frontend 699 test geçiyor; yeni çalışmal
 
 ---
 
-## 1. Senin yapman gerekenler (kod dışı; Claude yapamaz)
+## 1. Senin yapman gerekenler (kod dışı)
 
-Bunlar "10/10" için şart; kendi kendine sertifikalanamaz.
-
-### 1.1 Dış uzman incelemesi (en önemlisi)
-- Her disiplinden bir bağımsız uzman: **rüzgâr kaynağı/AEP**, **güç sistemleri** (yük akışı,
-  kısa devre, harmonik/kararlılık, EMT), **yapı** (kafes temel, yorulma), **SCADA/IEC 61850**.
-- Onlara ver: `docs/engineering-audit-2026-10.md`, Evidence sayfası, `backend/scripts/audit/`.
-- Her uzmandan yazılı görüş al; bulguları yeni bir "F10…" bulgu listesi olarak denetim
-  belgesine ekle, kapat, sonra Evidence'a "external review" satırı ekle.
-- Öneri: üniversitede (ör. Gdańsk Teknik Üniversitesi, DTU Wind, Strathclyde) bir öğretim
-  üyesi veya bir TSO/OEM mühendisi.
-
-### 1.2 Yayın ve atıf
-- **Zenodo DOI:** GitHub ↔ Zenodo entegrasyonunu aç (zenodo.org → GitHub → repo'yu aç), bir
-  sürüm etiketi (`v0.2.0`) yayınla; DOI'yi `CITATION.cff` içine `doi:` alanı olarak ekle.
-- **Sürüm başına doğrulama raporu (PDF):** otomatik — `Release validation report` iş akışı
-  her yayımlanan GitHub sürümüne PDF'i ekler (`backend/scripts/validation_report.py`; yerelde
-  de çalışır). Senden: sürümden önce `scripts/build_evidence.py` güncel olsun.
-- **JOSS yazılım makalesi** (joss.theoj.org): taslak hazır — `paper/paper.md` + `paper/paper.bib`;
-  PDF'i `JOSS paper draft` iş akışı üretir (Actions → artifact "paper"). Senden: ORCID ve
-  kurum bilgisini ön bilgiye yaz, metni oku, joss.theoj.org/papers/new'den gönder.
-- **Yöntem makalesi** (ör. *Wind Energy Science*): yaşam döngüsüne bağlı doğrulama yaklaşımı.
-- `CITATION.cff` içine ORCID numaranı ekle (`orcid:` alanı).
+OffshoreForge bir eğitim/mühendislik platformu, bilimsel yayın değil: DOI (Zenodo), dergi
+makalesi (JOSS, yöntem makalesi) ve dış hakem incelemesi kapsam dışı (13 Ekim 2026'da
+çıkarıldı). Sürüm yapılırsa `Release validation report` iş akışı doğrulama raporu PDF'ini
+sürüme ekler (`backend/scripts/validation_report.py`).
 
 ### 1.3 Veri
 - **FINO2 ölçüm direği verisi** (BSH, ücretsiz kayıtla): rüzgâr profili/TI doğrulaması için.

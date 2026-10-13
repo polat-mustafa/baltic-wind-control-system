@@ -15,8 +15,8 @@ Writes two raster layers into app/services/site_assessment/data/southern_baltic.
       fill, then bilinear);
     - A = mean / Γ(1 + 1/k) (Weibull mean).
   Land cells (NEWA landmask) are null.
-  Licence: NEWA is CC BY-NC 4.0 (non-commercial). OffshoreForge is free, open-source
-  and non-commercial; a commercial re-user must replace this layer.
+  Licence: both NEWA atlases are CC BY 4.0 (DTU Data records, checked 2026-10-13; the
+  NEWA site terms: CC BY 4.0 unless stated otherwise). Cite the NEWA Consortium.
   (NEWA's ``wind_speed_std`` is a long-term statistic, not the hourly spread — a
   moment fit with it gives k ≈ 4.5 offshore — so k comes from the microscale atlas.)
 * ``wind_rose`` (role ``wind_rose``), 1° grid, bands ``f000``…``f330``: share of
@@ -350,7 +350,9 @@ def build(today: str) -> list[dict[str, Any]]:
             "Microscale Atlas weib_k_combined 100/200 m, ln(z)-interpolated to 150 m; "
             "A = mean / Γ(1 + 1/k)"
         ),
-        "license": "CC BY-NC 4.0 (NEWA — non-commercial use; replace for commercial re-use)",
+        "license": (
+            "CC BY 4.0 (NEWA Consortium; DTU Data doi:10.11583/DTU.14414096, 10.11583/DTU.14672049)"
+        ),
         "retrieved": today,
         "features": [],
         "raster": {

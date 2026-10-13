@@ -346,15 +346,15 @@
   },
   {
    "path": "app/services/site_assessment/data/SOURCES.md",
-   "bytes": 9674,
-   "sha256": "d3efb966ff67eacf7de960a9f4d19c87babd4f007a89543f0d4edaf614b6bc2a",
+   "bytes": 9611,
+   "sha256": "ce714eb974a2b083fecd28f57da32ea65caccc659df87c62b721c99e36656b76",
    "documented_in": "app/services/site_assessment/data/SOURCES.md",
    "produced_by": "(hand-written)"
   },
   {
    "path": "app/services/site_assessment/data/southern_baltic.json",
-   "bytes": 1319301,
-   "sha256": "51aa9354cd21b2ef0f2f9c8e4664fb549c3ab3781f03c2c735d80d8596445866",
+   "bytes": 1319314,
+   "sha256": "cfb58160cb33e3759d67044b2e7bc04686644b447b09be829871743c838cd7a7",
    "documented_in": "app/services/site_assessment/data/SOURCES.md",
    "produced_by": "scripts/fetch_marine_layers.py, scripts/fetch_wind_climate.py"
   }

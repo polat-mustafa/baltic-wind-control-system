@@ -30,8 +30,9 @@ Bunlar "10/10" için şart; kendi kendine sertifikalanamaz.
   sürüm etiketi (`v0.2.0`) yayınla; DOI'yi `CITATION.cff` içine `doi:` alanı olarak ekle.
 - **Sürüm başına doğrulama raporu (PDF):** her sürümde `scripts/build_evidence.py` çalıştır,
   Evidence sayfasını + denetim belgesini PDF'e çevir, sürüme ekle.
-- **JOSS yazılım makalesi** (joss.theoj.org): `paper.md` + `paper.bib`; incelemeyi JOSS
-  hakemleri yapar — bu aynı zamanda dış incelemenin bir parçası sayılır.
+- **JOSS yazılım makalesi** (joss.theoj.org): taslak hazır — `paper/paper.md` + `paper/paper.bib`;
+  PDF'i `JOSS paper draft` iş akışı üretir (Actions → artifact "paper"). Senden: ORCID ve
+  kurum bilgisini ön bilgiye yaz, metni oku, joss.theoj.org/papers/new'den gönder.
 - **Yöntem makalesi** (ör. *Wind Energy Science*): yaşam döngüsüne bağlı doğrulama yaklaşımı.
 - `CITATION.cff` içine ORCID numaranı ekle (`orcid:` alanı).
 

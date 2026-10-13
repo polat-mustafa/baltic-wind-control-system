@@ -328,7 +328,7 @@ means not done in this round, with the reason.
 | C-1 | `validation` marker and nine new Evidence rows (above). A1 (needs the compiled ROSCO) and A8 (needs the XSD download) stay scripts |
 | C-2 | pandapower vs OpenDSS: the dispatched 72-bus SB-510 network re-solved in EPRI OpenDSS agrees within 8 × 10⁻⁵ pu on every bus, grid P within 0.01 MW and Q within 0.05 Mvar at 100 / 50 / 0 % output (`c2_opendss_load_flow.py`; ✔︎ `p2-loadflow-opendss`, runs in CI). PyWake vs FLORIS 4.2.1 on the SB-510 layout (TI 6 %, site Weibull): farm wake loss Jensen 6.72 vs 6.55 %, TurbOPark 10.49 vs 10.92 % (FLORIS `turboparkgauss`; its older `turbopark` gives 9.38 %), Gaussian 7.09 vs 6.88 % (`c2_floris_wakes.py`; ✔︎ `p1-wake-floris`, local — FLORIS is not a CI dependency). Open: app turbine vs OpenFAST |
 | C-3 | Open: further measured datasets (owner's to-do: FINO2, Baltica 2 on ENTSO-E) |
-| C-4 | Open: model cards per module |
+| C-4 | [Model cards](model-cards.md) for every module (13 Oct): purpose, assumptions, validity range, verification, validation, uncertainty and known limits in ASME V&V 10 / 20 terms; the digital twin card notes DNV-RP-A204 (no third-party qualification) |
 | C-5 | `CITATION.cff`; SHA-256 manifest of all 49 bundled datasets with provenance (`backend/data_manifest.json`, enforced by `tests/test_data_manifest.py`). Zenodo DOI and a per-release PDF report are release-time actions for the owner |
 | C-6 | Open: JOSS / methods paper and external review — cannot be self-certified |
 

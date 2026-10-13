@@ -97,7 +97,7 @@ Bunlar "10/10" için şart; kendi kendine sertifikalanamaz.
 - Gerçek dönüştürücü verisi gelince (1.3) `ConverterModel` varsayılanlarını güncelle;
   PLL ve 50 Hz rezonans kontrolcüsünü (düşük frekans etkileşimi) ekle.
 
-### 2.8 Model kartları (denetim C-4)
+### 2.8 Model kartları (denetim C-4) — YAPILDI (13 Ekim, `docs/model-cards.md`)
 - Her modül için tek sayfa: varsayımlar, geçerlilik aralığı, doğrulama, bilinen sınırlar
   (ASME V&V 10/20 terimleri; dijital ikiz için DNV-RP-A204). `docs/references.md` yöntem →
   kaynak eşlemesini zaten veriyor; kartlar bunu "sınırlar" ile tamamlar.

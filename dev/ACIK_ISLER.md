@@ -28,8 +28,9 @@ Bunlar "10/10" için şart; kendi kendine sertifikalanamaz.
 ### 1.2 Yayın ve atıf
 - **Zenodo DOI:** GitHub ↔ Zenodo entegrasyonunu aç (zenodo.org → GitHub → repo'yu aç), bir
   sürüm etiketi (`v0.2.0`) yayınla; DOI'yi `CITATION.cff` içine `doi:` alanı olarak ekle.
-- **Sürüm başına doğrulama raporu (PDF):** her sürümde `scripts/build_evidence.py` çalıştır,
-  Evidence sayfasını + denetim belgesini PDF'e çevir, sürüme ekle.
+- **Sürüm başına doğrulama raporu (PDF):** otomatik — `Release validation report` iş akışı
+  her yayımlanan GitHub sürümüne PDF'i ekler (`backend/scripts/validation_report.py`; yerelde
+  de çalışır). Senden: sürümden önce `scripts/build_evidence.py` güncel olsun.
 - **JOSS yazılım makalesi** (joss.theoj.org): taslak hazır — `paper/paper.md` + `paper/paper.bib`;
   PDF'i `JOSS paper draft` iş akışı üretir (Actions → artifact "paper"). Senden: ORCID ve
   kurum bilgisini ön bilgiye yaz, metni oku, joss.theoj.org/papers/new'den gönder.

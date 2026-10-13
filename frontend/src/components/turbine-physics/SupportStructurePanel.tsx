@@ -112,7 +112,7 @@ export default function SupportStructurePanel() {
             <span>First natural frequencies:</span>{" "}
             <span translate="no" className="font-mono">{s.frequencies_hz.slice(0, 6).map((f) => f.toFixed(3)).join(" · ")} Hz</span>
           </p>
-          {s.foundation.length > 0 && (
+          {(s.foundation?.length ?? 0) > 0 && (
             <div className="overflow-x-auto">
               <p className="mb-1 text-xs font-semibold text-text-secondary">Foundation sensitivity</p>
               <table className="w-full text-xs">

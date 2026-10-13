@@ -237,4 +237,21 @@ export default {
     "Aynı yerleşim ve güç/itki tablosuyla NREL FLORIS 4.2.1 (jensen, turboparkgauss, gauss)",
   "largest wake-loss difference of the three pairs": "üç model çifti arasındaki en büyük iz kaybı farkı",
   "< 1 pp (Jensen < 0.5 pp)": "< 1 yüzde puan (Jensen < 0.5 yüzde puan)",
+  // audit follow-ups 2026-10-13
+  "Fleet O&M replay: energy-based availability of SB-510 over the 30-year hindcast (2 CTVs × 3 crews, jack-up)":
+    "Filo İ&B benzetimi: SB-510'un 30 yıllık geçmiş veri boyunca enerjiye dayalı kullanılabilirliği (2 CTV × 3 ekip, jack-up)",
+  "NREL WOMBAT 0.13.4 with the same failure rates, vessels, limits and weather":
+    "Aynı arıza oranları, gemiler, sınırlar ve hava verisiyle NREL WOMBAT 0.13.4",
+  "WOMBAT − app, energy-based availability": "WOMBAT − uygulama, enerjiye dayalı kullanılabilirlik",
+  "0 … 3 pp (WOMBAT has no response delay)": "0 … 3 yüzde puan (WOMBAT'ta müdahale gecikmesi yok)",
+  "Transformer inrush (two-slope saturation, flux-linkage integration)":
+    "Trafo ani akımı (iki eğimli doyma, akı bağı integrasyonu)",
+  "Specht's closed-form first inrush peak (AIEE Trans. 70, 1951)":
+    "Specht'in kapalı formdaki ilk ani akım tepesi (AIEE Trans. 70, 1951)",
+  "simulated / closed-form first peak": "benzetim / kapalı form ilk tepe",
+  "Jacket pile on API p-y springs (frame FE, foundation sensitivity)":
+    "API p-y yayları üzerinde kafes kazığı (çerçeve SE, temel duyarlılığı)",
+  "Matlock & Reese (1960) long-pile head deflection, linearly increasing modulus":
+    "Matlock & Reese (1960) uzun kazık baş yer değiştirmesi, doğrusal artan modül",
+  "FE / closed-form head deflection": "SE / kapalı form baş yer değiştirmesi",
 } satisfies Record<string, string>;
